@@ -19,21 +19,52 @@ server.listen(port, host, function() {
   console.info("Listening at http://" + host + ":" + port + "/");
 });
 
-var mapSize = v(9600, 5400);
+var mapSize = v(1, 1);
 setInterval(update, 16);
 
+var playerCount = 0;
+
 var players = {};
+
+var msgHandlers = {
+  aim: function(player, args) {
+    player.aim = v(args);
+  },
+};
 wss.on('connection', function(ws) {
   var player = new Player(ws);
   players[player.id] = player;
+  playerCount += 1;
 
   ws.on('close', function() {
     delete players[player.id];
+    playerCount -= 1;
     broadcast('delete', player.id);
+    updateMapSize();
   });
 
-  ws.on('aim', function(aim) {
-    player.aim = v(aim);
+  ws.on('message', function(data, flags) {
+    if (flags.binary) {
+      console.warn("ignoring binary web socket message");
+      return;
+    }
+    var msg;
+    try {
+      msg = JSON.parse(data);
+    } catch (err) {
+      console.warn("received invalid JSON from web socket:", err.message);
+      return;
+    }
+    var fn = msgHandlers[msg.name];
+    if (!fn) {
+      console.warn("unrecognized message:", msg.name);
+      return;
+    }
+    fn(player, msg.args);
+  });
+
+  ws.on('error', function(err) {
+    console.error("web socket error:", err.stack);
   });
 
   for (var id in players) {
@@ -44,7 +75,19 @@ wss.on('connection', function(ws) {
     }
   }
   send(ws, 'you', player.id);
+
+  updateMapSize();
 });
+
+function updateMapSize() {
+  if (playerCount === 0) {
+    mapSize = v(1, 1);
+    return;
+  }
+  mapSize.x = 960 * 1.5 * playerCount;
+  mapSize.y = mapSize.x / 1920 * 1080;
+  broadcast('mapSize', mapSize);
+}
 
 function update() {
   var player, id;
@@ -61,6 +104,7 @@ function update() {
 }
 
 function send(ws, name, args) {
+  if (ws.readyState !== 1) return;
   ws.send(JSON.stringify({
     name: name,
     args: args,

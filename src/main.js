@@ -23,6 +23,8 @@ chem.resources.on('ready', function () {
   var me = null;
   var scroll = v(0, 0);
 
+  var mapSize = engine.size.clone();
+
   var connectingLabel = new chem.Label("connecting...", {
     pos: engine.size.scaled(0.5),
     font: "22px Arial",
@@ -61,7 +63,6 @@ chem.resources.on('ready', function () {
       player.turretSprite.scale = player.sprite.scale;
       player.turretSprite.rotation = player.aim.angle();
     }
-
   });
   engine.on('draw', function (context) {
     // clear canvas to black
@@ -80,14 +81,10 @@ chem.resources.on('ready', function () {
   socket.on('connect', function() {
   });
   socket.on('disconnect', function(){
-    for (var id in players) {
-      var player = players[id];
-      player.sprite.delete();
-      player.turretSprite.delete();
-    }
-    players = {};
+    Object.keys(players).forEach(deletePlayer);
     me = null;
   });
+  socket.on('delete', deletePlayer);
   socket.on('spawn', function(player) {
     players[player.id] = player;
     player.pos = v(player.pos);
@@ -110,4 +107,13 @@ chem.resources.on('ready', function () {
     player.aim = v(serverPlayer.aim);
     player.radius = serverPlayer.radius;
   });
+  socket.on('mapSize', function(serverMapSize) {
+    mapSize = v(serverMapSize);
+  });
+  function deletePlayer(playerId) {
+    var player = players[playerId];
+    player.sprite.delete();
+    player.turretSprite.delete();
+    delete players[playerId];
+  }
 });
