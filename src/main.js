@@ -14,6 +14,7 @@ engine.start();
 canvas.focus();
 
 var CHUNK_ROTATION_DELTA = Math.PI * 2 / 100;
+var SHIELD_ANGULAR_SPEED = Math.PI * 0.80 / 60;
 
 chem.resources.on('ready', function () {
   var socket = new Socket();
@@ -105,6 +106,10 @@ chem.resources.on('ready', function () {
     for (var id in players) {
       var player = players[id];
 
+      if (player.shield != null) {
+        player.shield = (player.shield + SHIELD_ANGULAR_SPEED * dx) % (Math.PI * 2);
+      }
+
       player.pos.add(player.vel.scaled(dx));
 
       player.sprite.pos = player.pos;
@@ -152,11 +157,10 @@ chem.resources.on('ready', function () {
     var playerId, player;
     for (playerId in players) {
       player = players[playerId];
-      if (player.shield) {
-        var angle = player.shield.angle();
+      if (player.shield != null) {
         context.beginPath();
         context.arc(player.pos.x, player.pos.y, player.radius + SHIELD_DIST,
-            angle - Math.PI * 0.25, angle + Math.PI * 0.25);
+            player.shield - Math.PI * 0.30, player.shield + Math.PI * 0.30);
         context.strokeStyle = SHIELD_COLOR;
         context.lineWidth = 2;
         context.stroke();
@@ -224,7 +228,7 @@ chem.resources.on('ready', function () {
     player.vel = v(serverPlayer.vel);
     player.aim = v(serverPlayer.aim);
     player.radius = serverPlayer.radius;
-    player.shield = serverPlayer.shield ? v(serverPlayer.shield) : null;
+    player.shield = serverPlayer.shield;
     if (serverPlayer.kills !== player.kills) {
       player.kills = serverPlayer.kills;
       player.label.text = playerName(player);

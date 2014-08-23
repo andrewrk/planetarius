@@ -40,6 +40,7 @@ var CHUNK_ATTRACT_SPEED = 100 / 60;
 var MINIMUM_PLAYER_RADIUS = 8;
 var NEXT_LEVEL_RADIUS = 80;
 var MAX_LEVEL = 1;
+var SHIELD_ANGULAR_SPEED = Math.PI * 0.80 / 60;
 
 var nextId = 0;
 var playerCount = 0;
@@ -182,10 +183,19 @@ function update(dt, dx) {
       var playerToBullet = bullet.pos.minus(player.pos);
       if (playerToBullet.length() < player.radius + bullet.radius) {
         playerToBullet.normalize();
-        if (player.shield && player.shield.dot(playerToBullet) >= 0.70) {
-          collide(player, bullet);
-          broadcast('bulletMove', bullet.serialize());
+        var hitPlayer = false;
+        if (player.shield != null) {
+          var shieldUnit = v.unit(player.shield);
+          if (shieldUnit.dot(playerToBullet) >= 0.60) {
+            collide(player, bullet);
+            broadcast('bulletMove', bullet.serialize());
+          } else {
+            hitPlayer = true;
+          }
         } else {
+          hitPlayer = true;
+        }
+        if (hitPlayer) {
           playerLoseChunk(player, bullet.radius, playerToBullet, bullet.player);
           delBullets.push(bullet.id);
         }
@@ -254,6 +264,10 @@ function update(dt, dx) {
     player = players[id];
     if (player.deleted) continue;
 
+    if (player.shield != null) {
+      player.shield = (player.shield + SHIELD_ANGULAR_SPEED * dx) % (Math.PI * 2);
+    }
+
     player.pos.add(player.vel.scaled(dx));
 
     var velDelta = v();
@@ -294,14 +308,6 @@ function update(dt, dx) {
         (player.pos.y > mapSize.y && player.vel.y > 0))
     {
       player.vel.y = -player.vel.y;
-    }
-
-    if (player.level === 1) {
-      if (velDelta.x === 0 && velDelta.y === 0) {
-        player.shield = null;
-      } else {
-        player.shield = velDelta.normalized().scale(-1);
-      }
     }
 
     if (!player.deleted) {
@@ -346,6 +352,8 @@ function playerGainRadius(player, radius) {
     var lostRadius = player.radius - DEFAULT_RADIUS;
     player.level += 1;
     player.radius = DEFAULT_RADIUS;
+
+    player.shield = (player.level === 1) ? 0 : null;
 
     var chunkCount = 12;
     var chunkRadius= lostRadius / chunkCount;
