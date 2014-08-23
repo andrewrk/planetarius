@@ -38,8 +38,10 @@ var CHUNK_COLLECT_TIMEOUT = 10;
 var CHUNK_ATTRACT_DIST = 150;
 var CHUNK_ATTRACT_SPEED = 100 / 60;
 var MINIMUM_PLAYER_RADIUS = 8;
-var nextId = 0;
+var NEXT_LEVEL_RADIUS = 80;
+var MAX_LEVEL = 1;
 
+var nextId = 0;
 var playerCount = 0;
 
 var players = {};
@@ -62,6 +64,7 @@ var msgHandlers = {
     player.vel = v(0, 0);
     player.aim = v(1, 0);
     player.cooldown = 0;
+    player.level = 0;
     broadcast('spawn', player.serialize());
     send(player.ws, 'you', player.id);
   },
@@ -225,7 +228,7 @@ function update(dt, dx) {
     }
 
     if (closestPlayer && closestDist < closestPlayer.radius + chunk.radius) {
-      closestPlayer.radius += chunk.radius;
+      playerGainRadius(closestPlayer, chunk.radius);
       delChunks.push(chunk.id);
     } else {
       radiusSum += chunk.radius;
@@ -264,6 +267,7 @@ function update(dt, dx) {
       }
     }
 
+
     player.vel.add(velDelta);
     var adjustedMaxSpeed = dx * MAX_PLAYER_SPEED * DEFAULT_RADIUS / player.radius;
     if (player.vel.length() > adjustedMaxSpeed) {
@@ -279,6 +283,14 @@ function update(dt, dx) {
         (player.pos.y > mapSize.y && player.vel.y > 0))
     {
       player.vel.y = -player.vel.y;
+    }
+
+    if (player.level === 1) {
+      if (velDelta.x === 0 && velDelta.y === 0) {
+        player.shield = null;
+      } else {
+        player.shield = velDelta.normalized().scale(-1);
+      }
     }
 
     if (!player.deleted) {
@@ -314,6 +326,27 @@ function update(dt, dx) {
   delPlayers.forEach(function(playerId) {
     broadcast('delete', playerId);
   });
+}
+
+function playerGainRadius(player, radius) {
+  player.radius += radius;
+
+  if (player.radius > NEXT_LEVEL_RADIUS && player.level < MAX_LEVEL) {
+    var lostRadius = player.radius - DEFAULT_RADIUS;
+    player.level += 1;
+    player.radius = DEFAULT_RADIUS;
+
+    var chunkCount = 12;
+    var chunkRadius= lostRadius / chunkCount;
+    for (var i = 0; i < chunkCount; i += 1) {
+      var chunkVelDir = v.unit(Math.PI * 2 * (i / chunkCount));
+      var chunkVel = chunkVelDir.scaled(CHUNK_SPEED * 2);
+      var chunkPos = player.pos.plus(chunkVelDir.scaled(player.radius));
+      var chunk = new Chunk(player, chunkPos, chunkVel, chunkRadius);
+      chunks[chunk.id] = chunk;
+      broadcast('spawnChunk', chunk.serialize());
+    }
+  }
 }
 
 function collide(player, other) {
@@ -400,6 +433,8 @@ function Player(ws) {
   this.collisionDamping = 0.9;
   this.density = 1;
   this.name = eden.eve();
+  this.level = 0;
+  this.shield = null;
 
   this.ws = ws;
 }
@@ -416,6 +451,8 @@ Player.prototype.serialize = function() {
     aim: this.aim,
     radius: this.radius,
     name: this.name,
+    level: this.level,
+    shield: this.shield,
   };
 };
 

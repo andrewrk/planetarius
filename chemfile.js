@@ -11,7 +11,8 @@ exports.spritesheet = {
     anchor: "center"
   },
   animations: {
-    world: {},
+    world1: {},
+    world2: {},
     turret: {
       anchor: {x: 20, y: 62},
     },

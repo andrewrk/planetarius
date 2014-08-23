@@ -28,9 +28,12 @@ chem.resources.on('ready', function () {
   var me = null;
   var died = false;
   var scroll = v(0, 0);
+  var playerLevelAnimations = [ani.world1, ani.world2];
 
   var MINI_ME_COLOR = '#536EDB';
   var MINI_THEM_COLOR = '#D4313F';
+  var SHIELD_DIST = 6;
+  var SHIELD_COLOR = '#73AFDA';
 
   var mapSize = engine.size.clone();
   var miniMapSize = v(80, 45);
@@ -78,6 +81,8 @@ chem.resources.on('ready', function () {
 
     if (me) {
       scroll = me.pos.minus(engine.size.scaled(0.5));
+
+      debugLabel.text = String(me.radius);
 
       me.left = engine.buttonState(button.KeyLeft) || engine.buttonState(button.KeyA);
       me.right = engine.buttonState(button.KeyRight) ||
@@ -137,12 +142,27 @@ chem.resources.on('ready', function () {
     context.strokeRect(0, 0, mapSize.x, mapSize.y);
     batch.draw(context);
 
+    var playerId, player;
+    for (playerId in players) {
+      player = players[playerId];
+      if (player.shield) {
+        var angle = player.shield.angle();
+        context.beginPath();
+        context.arc(player.pos.x, player.pos.y, player.radius + SHIELD_DIST,
+            angle - Math.PI * 0.25, angle + Math.PI * 0.25);
+        context.strokeStyle = SHIELD_COLOR;
+        context.lineWidth = 2;
+        context.stroke();
+        context.lineWidth = 1;
+      }
+    }
+
     // mini map
     context.setTransform(1, 0, 0, 1, 0, 0); // load identity
     var scale = miniMapSize.divBy(mapSize);
     context.scale(scale.x, scale.y);
-    for (var playerId in players) {
-      var player = players[playerId];
+    for (playerId in players) {
+      player = players[playerId];
       context.beginPath();
       context.arc(player.pos.x, player.pos.y, player.radius, 0, 2 * Math.PI);
       context.closePath();
@@ -173,13 +193,13 @@ chem.resources.on('ready', function () {
     player.vel = v(player.vel);
     player.aim = v(player.aim);
 
-    player.sprite = new chem.Sprite(ani.world, { batch: batch });
+    player.sprite = new chem.Sprite(playerLevelAnimations[player.level], { batch: batch });
     player.turretSprite = new chem.Sprite(ani.turret, {
       batch: batch,
       zOrder: 1,
       pos: player.pos,
     });
-    player.label = new chem.Label(player.name, {
+    player.label = new chem.Label(playerName(player), {
       pos: player.pos.offset(0, -player.radius),
       font: "18px Arial",
       textAlign: "center",
@@ -197,6 +217,12 @@ chem.resources.on('ready', function () {
     player.vel = v(serverPlayer.vel);
     player.aim = v(serverPlayer.aim);
     player.radius = serverPlayer.radius;
+    player.shield = serverPlayer.shield ? v(serverPlayer.shield) : null;
+    if (player.level !== serverPlayer.level) {
+      player.level = serverPlayer.level;
+      player.sprite.setAnimation(playerLevelAnimations[player.level]);
+      player.label.text = playerName(player);
+    }
   });
   socket.on('mapSize', function(serverMapSize) {
     mapSize = v(serverMapSize);
@@ -277,5 +303,8 @@ chem.resources.on('ready', function () {
       down: me.down,
       fire: me.fire,
     });
+  }
+  function playerName(player) {
+    return player.name + " (Lvl " + (player.level + 1) + ")";
   }
 });
