@@ -3,6 +3,7 @@ var v = chem.vec2d;
 var ani = chem.resources.animations;
 var canvas = document.getElementById("game");
 var engine = new chem.Engine(canvas);
+var Socket = require('./socket');
 
 engine.buttonCaptureExceptions[chem.button.KeyF5] = true;
 
@@ -11,46 +12,27 @@ engine.start();
 canvas.focus();
 
 chem.resources.on('ready', function () {
+  var socket = new Socket();
+
   var batch = new chem.Batch();
   var boom = new chem.Sound('sfx/boom.ogg');
-  var ship = new chem.Sprite(ani.ship, {
+
+  var players = {};
+  var me = null;
+
+  var connectingLabel = new chem.Label("connecting...", {
+    pos: engine.size.scaled(0.5),
+    font: "22px Arial",
+    textAlign: "center",
+    textBaseline: "center",
+    fillStyle: "#ffffff",
     batch: batch,
-    pos: v(200, 200),
-    rotation: Math.PI / 2
   });
-  var shipVel = v();
-  var rotationSpeed = Math.PI * 0.04;
-  var thrustAmt = 0.1;
+
   var fpsLabel = engine.createFpsLabel();
   engine.on('update', function (dt, dx) {
-    ship.pos.add(shipVel);
-
-    // rotate the ship with left and right arrow keys
-    if (engine.buttonState(chem.button.KeyLeft)) {
-      ship.rotation -= rotationSpeed * dx;
-    }
-    if (engine.buttonState(chem.button.KeyRight)) {
-      ship.rotation += rotationSpeed * dx;
-    }
-
-    // apply forward and backward thrust with up and down arrow keys
-    var thrust = v(Math.cos(ship.rotation), Math.sin(ship.rotation));
-    if (engine.buttonState(chem.button.KeyUp)) {
-      shipVel.add(thrust.scaled(thrustAmt * dx));
-    }
-    if (engine.buttonState(chem.button.KeyDown)) {
-      shipVel.sub(thrust.scaled(thrustAmt * dx));
-    }
-
-    // press space to blow yourself up
-    if (engine.buttonJustPressed(chem.button.KeySpace)) {
-      boom.play();
-      ship.setAnimation(ani.boom);
-      ship.setFrameIndex(0);
-      ship.on('animationend', function() {
-        ship.delete();
-      });
-    }
+    connectingLabel.setVisible(!me);
+    if (!me) return;
   });
   engine.on('draw', function (context) {
     // clear canvas to black
@@ -62,5 +44,13 @@ chem.resources.on('ready', function () {
 
     // draw a little fps counter in the corner
     fpsLabel.draw(context);
+  });
+  socket.on('connect', function() {
+  });
+  socket.on('spawn', function(player) {
+    players[player.id] = player;
+  });
+  socket.on('you', function(playerId) {
+    me = players[playerId];
   });
 });
