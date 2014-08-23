@@ -169,8 +169,9 @@ function update(dt, dx) {
       player = players[playerId];
       if (player.deleted) continue;
       if (player === bullet.player) continue;
-      if (bullet.pos.distance(player.pos) < player.radius + bullet.radius) {
-        playerLoseChunk(player, bullet.radius);
+      var playerToBullet = bullet.pos.minus(player.pos);
+      if (playerToBullet.length() < player.radius + bullet.radius) {
+        playerLoseChunk(player, bullet.radius, playerToBullet.normalize());
         delBullets.push(bullet.id);
       }
     }
@@ -338,8 +339,7 @@ function makeId() {
   return nextId++;
 }
 
-function playerLoseChunk(player, radius) {
-  var chunkVelDir = v.unit(Math.random() * 2 * Math.PI);
+function playerLoseChunk(player, radius, chunkVelDir) {
   var chunkVel = chunkVelDir.scaled(CHUNK_SPEED);
   var chunkPos = player.pos.plus(chunkVelDir.scaled(player.radius));
   var chunk = new Chunk(player, chunkPos, chunkVel, radius);
