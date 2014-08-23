@@ -66,6 +66,7 @@ var msgHandlers = {
     player.cooldown = 0;
     player.level = 0;
     player.shield = null;
+    player.kills = 0;
     broadcast('spawn', player.serialize());
     send(player.ws, 'you', player.id);
   },
@@ -185,7 +186,7 @@ function update(dt, dx) {
           collide(player, bullet);
           broadcast('bulletMove', bullet.serialize());
         } else {
-          playerLoseChunk(player, bullet.radius, playerToBullet);
+          playerLoseChunk(player, bullet.radius, playerToBullet, bullet.player);
           delBullets.push(bullet.id);
         }
       }
@@ -400,20 +401,21 @@ function makeId() {
   return nextId++;
 }
 
-function playerLoseChunk(player, radius, chunkVelDir) {
+function playerLoseChunk(player, radius, chunkVelDir, bulletPlayer) {
   var chunkVel = chunkVelDir.scaled(CHUNK_SPEED);
   var chunkPos = player.pos.plus(chunkVelDir.scaled(player.radius));
   var chunk = new Chunk(player, chunkPos, chunkVel, radius);
   chunks[chunk.id] = chunk;
   broadcast('spawnChunk', chunk.serialize());
 
-  playerLoseRadius(player, radius);
+  playerLoseRadius(player, radius, bulletPlayer);
 }
 
-function playerLoseRadius(player, radius) {
+function playerLoseRadius(player, radius, bulletPlayer) {
   player.radius -= radius;
   if (player.radius < MINIMUM_PLAYER_RADIUS) {
     player.deleted = true;
+    bulletPlayer.kills += 1;
     if (player.radius > 0) {
       var extraChunk = new Chunk(null, player.pos.clone(), player.vel.clone(), player.radius);
       chunks[extraChunk.id] = extraChunk;
@@ -445,6 +447,7 @@ function Player(ws) {
   this.name = eden.eve();
   this.level = 0;
   this.shield = null;
+  this.kills = 0;
 
   this.ws = ws;
 }
@@ -463,6 +466,7 @@ Player.prototype.serialize = function() {
     name: this.name,
     level: this.level,
     shield: this.shield,
+    kills: this.kills,
   };
 };
 

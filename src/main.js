@@ -225,6 +225,10 @@ chem.resources.on('ready', function () {
     player.aim = v(serverPlayer.aim);
     player.radius = serverPlayer.radius;
     player.shield = serverPlayer.shield ? v(serverPlayer.shield) : null;
+    if (serverPlayer.kills !== player.kills) {
+      player.kills = serverPlayer.kills;
+      player.label.text = playerName(player);
+    }
     if (player.level !== serverPlayer.level) {
       player.level = serverPlayer.level;
       player.sprite.setAnimation(playerLevelAnimations[player.level]);
@@ -318,6 +322,6 @@ chem.resources.on('ready', function () {
     });
   }
   function playerName(player) {
-    return player.name + " (Lvl " + (player.level + 1) + ")";
+    return player.name + " Lvl:" + (player.level + 1) + " Kil:" + player.kills;
   }
 });
