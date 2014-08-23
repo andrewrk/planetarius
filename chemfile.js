@@ -19,5 +19,8 @@ exports.spritesheet = {
     starlarge: {},
     bullet: {},
     chunk: {},
+    controls: {
+      anchor: 'topleft',
+    },
   }
 };

@@ -54,6 +54,11 @@ chem.resources.on('ready', function () {
     batch: staticBatch,
   });
 
+  var controlsSprite = new chem.Sprite(ani.controls, {
+    pos: v(miniMapPos.x + miniMapSize.x + 4, miniMapPos.y),
+    batch: staticBatch,
+  });
+
   generateStars(v(1080 * 4, 1920 * 4), 0.00005);
 
   var fpsLabel = engine.createFpsLabel();
