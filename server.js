@@ -65,8 +65,12 @@ var msgHandlers = {
     player.aim = v(1, 0);
     player.cooldown = 0;
     player.level = 0;
+    player.shield = null;
     broadcast('spawn', player.serialize());
     send(player.ws, 'you', player.id);
+  },
+  upgrayde: function(player, args) {
+    playerGainRadius(player, 4);
   },
 };
 
@@ -176,8 +180,14 @@ function update(dt, dx) {
       if (player === bullet.player) continue;
       var playerToBullet = bullet.pos.minus(player.pos);
       if (playerToBullet.length() < player.radius + bullet.radius) {
-        playerLoseChunk(player, bullet.radius, playerToBullet.normalize());
-        delBullets.push(bullet.id);
+        playerToBullet.normalize();
+        if (player.shield && player.shield.dot(playerToBullet) >= 0.70) {
+          collide(player, bullet);
+          broadcast('bulletMove', bullet.serialize());
+        } else {
+          playerLoseChunk(player, bullet.radius, playerToBullet);
+          delBullets.push(bullet.id);
+        }
       }
     }
   }
@@ -463,6 +473,8 @@ function Bullet(player, pos, vel, radius) {
   this.vel = vel;
   this.radius = radius;
   this.life = 0.5;
+  this.collisionDamping = 0.95;
+  this.density = 0.04;
 }
 
 Bullet.prototype.serialize = function() {
@@ -473,6 +485,10 @@ Bullet.prototype.serialize = function() {
     player: this.player.id,
     radius: this.radius,
   };
+};
+
+Bullet.prototype.mass = function() {
+  return this.radius * this.radius * Math.PI * this.density;
 };
 
 function Chunk(player, pos, vel, radius) {

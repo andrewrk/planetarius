@@ -67,6 +67,13 @@ chem.resources.on('ready', function () {
   var fpsLabel = engine.createFpsLabel();
   staticBatch.add(fpsLabel);
 
+  engine.on('buttondown', function(btn) {
+    if (btn === button.KeyBackspace) {
+      // nothing to see here, move along
+      socket.send("upgrayde");
+    }
+  });
+
   engine.on('update', function (dt, dx) {
     if (!me) {
       connectingLabel.setVisible(true);
@@ -238,6 +245,12 @@ chem.resources.on('ready', function () {
     });
     bullet.sprite.scale = v((bullet.radius * 2) / bullet.sprite.size.x,
                             (bullet.radius * 2) / bullet.sprite.size.y);
+  });
+  socket.on('bulletMove', function(serverBullet) {
+    var bullet = bullets[serverBullet.id];
+    bullet.pos = v(serverBullet.pos);
+    bullet.vel = v(serverBullet.vel);
+    bullet.radius = serverBullet.radius;
   });
   socket.on('spawnChunk', function(chunk) {
     chunks[chunk.id] = chunk;
