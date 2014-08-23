@@ -154,6 +154,8 @@ function update(dt, dx) {
   var playerId;
   var bullet;
 
+  var radiusSum = 0;
+
   var delBullets = [];
   for (var bulletId in bullets) {
     bullet = bullets[bulletId];
@@ -182,8 +184,9 @@ function update(dt, dx) {
   });
 
   var delChunks = [];
+  var chunk;
   for (var chunkId in chunks) {
-    var chunk = chunks[chunkId];
+    chunk = chunks[chunkId];
     chunk.pos.add(chunk.vel.scaled(dx));
 
     if ((chunk.pos.x < 0 && chunk.vel.x < 0) ||
@@ -224,6 +227,8 @@ function update(dt, dx) {
     if (closestPlayer && closestDist < closestPlayer.radius + chunk.radius) {
       closestPlayer.radius += chunk.radius;
       delChunks.push(chunk.id);
+    } else {
+      radiusSum += chunk.radius;
     }
   }
   delChunks.forEach(function(chunkId) {
@@ -275,6 +280,10 @@ function update(dt, dx) {
     {
       player.vel.y = -player.vel.y;
     }
+
+    if (!player.deleted) {
+      radiusSum += player.radius;
+    }
   }
 
   for (var otherPlayerId in players) {
@@ -283,6 +292,15 @@ function update(dt, dx) {
     if (player.pos.distance(otherPlayer.pos) < player.radius + otherPlayer.radius) {
       collide(player, otherPlayer);
     }
+  }
+
+  if (radiusSum * radiusSum * Math.PI < mapSize.x * mapSize.y * 0.02) {
+    var chunkVelDir = v.unit(Math.random() * Math.PI * 2);
+    var chunkVel = chunkVelDir.scaled(CHUNK_SPEED);
+    var chunkPos = v(Math.random() * mapSize.x, Math.random() * mapSize.y);
+    chunk = new Chunk(null, chunkPos, chunkVel, Math.random() * 10 + 1);
+    chunks[chunk.id] = chunk;
+    broadcast('spawnChunk', chunk.serialize());
   }
 
   var delPlayers = [];
