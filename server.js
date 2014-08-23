@@ -20,6 +20,7 @@ server.listen(port, host, function() {
 });
 
 var mapSize = v(9600, 5400);
+setInterval(update, 16);
 
 var players = {};
 wss.on('connection', function(ws) {
@@ -31,9 +32,29 @@ wss.on('connection', function(ws) {
     broadcast('delete', player.id);
   });
 
-  broadcast('spawn', player.serialize());
+  for (var id in players) {
+    var otherPlayer = players[id];
+    send(ws, 'spawn', otherPlayer.serialize());
+    if (otherPlayer !== player) {
+      send(otherPlayer.ws, 'spawn', player.serialize());
+    }
+  }
   send(ws, 'you', player.id);
 });
+
+function update() {
+  var player, id;
+  for (id in players) {
+    player = players[id];
+
+    player.pos.add(player.vel);
+  }
+
+  for (id in players) {
+    player = players[id];
+    broadcast('move', player.serialize());
+  }
+}
 
 function send(ws, name, args) {
   ws.send(JSON.stringify({
@@ -57,6 +78,8 @@ function makeId() {
 function Player(ws) {
   this.id = makeId();
   this.pos = v(Math.random() * mapSize.x, Math.random() * mapSize.y);
+  this.radius = 70;
+  this.vel = v(0, 0);
   this.ws = ws;
 }
 
@@ -64,5 +87,7 @@ Player.prototype.serialize = function() {
   return {
     id: this.id,
     pos: this.pos,
+    vel: this.vel,
+    radius: this.radius,
   };
 };

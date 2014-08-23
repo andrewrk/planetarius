@@ -11,12 +11,6 @@ exports.spritesheet = {
     anchor: "center"
   },
   animations: {
-    boom: {
-      // frames can be a list of filenames or a string to match the beginning
-      // of files with. if you leave it out entirely, it defaults to the
-      // animation name.
-      frames: "explosion"
-    },
-    ship: {}
+    world: {},
   }
 };
