@@ -13,6 +13,8 @@ engine.showLoadProgressBar();
 engine.start();
 canvas.focus();
 
+var CHUNK_ROTATION_DELTA = Math.PI * 2 / 100;
+
 chem.resources.on('ready', function () {
   var socket = new Socket();
 
@@ -22,6 +24,7 @@ chem.resources.on('ready', function () {
 
   var players = {};
   var bullets = {};
+  var chunks = {};
   var me = null;
   var scroll = v(0, 0);
 
@@ -65,6 +68,9 @@ chem.resources.on('ready', function () {
     sendControlUpdate();
     for (var id in players) {
       var player = players[id];
+
+      player.pos.add(player.vel.scaled(dx));
+
       player.sprite.pos = player.pos;
       player.sprite.scale = v((player.radius * 2) / player.sprite.size.x,
                               (player.radius * 2) / player.sprite.size.y);
@@ -77,6 +83,13 @@ chem.resources.on('ready', function () {
       var bullet = bullets[bulletId];
       bullet.pos.add(bullet.vel.scaled(dx));
       bullet.sprite.pos = bullet.pos;
+    }
+
+    for (var chunkId in chunks) {
+      var chunk = chunks[chunkId];
+      chunk.pos.add(chunk.vel.scaled(dx));
+      chunk.sprite.pos = chunk.pos;
+      chunk.rotation = (chunk.rotation + CHUNK_ROTATION_DELTA * dx) % (2 * Math.PI);
     }
   });
   engine.on('draw', function (context) {
@@ -93,6 +106,9 @@ chem.resources.on('ready', function () {
     // draw all sprites in batch
     context.setTransform(1, 0, 0, 1, 0, 0); // load identity
     context.translate(-scroll.x, -scroll.y);
+    // draw container box
+    context.strokeStyle = '#BFBFBF';
+    context.strokeRect(0, 0, mapSize.x, mapSize.y);
     batch.draw(context);
 
     // draw a little fps counter in the corner
@@ -139,10 +155,27 @@ chem.resources.on('ready', function () {
     bullet.vel = v(bullet.vel);
     bullet.sprite = new chem.Sprite(ani.bullet, {
       batch: batch,
-      pos: bullet.player.pos,
+      pos: bullet.pos,
     });
     bullet.sprite.scale = v((bullet.radius * 2) / bullet.sprite.size.x,
                             (bullet.radius * 2) / bullet.sprite.size.y);
+  });
+  socket.on('spawnChunk', function(chunk) {
+    chunks[chunk.id] = chunk;
+    chunk.pos = v(chunk.pos);
+    chunk.vel = v(chunk.vel);
+    chunk.sprite = new chem.Sprite(ani.chunk, {
+      batch: batch,
+      pos: chunk.pos,
+    });
+    chunk.sprite.scale = v((chunk.radius * 2) / chunk.sprite.size.x,
+                            (chunk.radius * 2) / chunk.sprite.size.y);
+  });
+  socket.on('chunkMove', function(serverChunk) {
+    var chunk = chunks[serverChunk.id];
+    chunk.pos = v(serverChunk.pos);
+    chunk.vel = v(serverChunk.vel);
+    chunk.radius = serverChunk.radius;
   });
   socket.on('deleteBullet', function(bulletId) {
     var bullet = bullets[bulletId];

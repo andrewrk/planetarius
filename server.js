@@ -32,12 +32,17 @@ var PLAYER_ACCEL = 5 / 60;
 var PLAYER_COOLDOWN = 0.2;
 var BULLET_SPEED = 1200 / 60;
 var DEFAULT_BULLET_RADIUS = 4;
+var CHUNK_SPEED = 100 / 60;
+var CHUNK_COLLECT_TIMEOUT = 4;
+var CHUNK_ATTRACT_DIST = 150;
+var CHUNK_ATTRACT_SPEED = 50 / 60;
 var nextId = 0;
 
 var playerCount = 0;
 
 var players = {};
 var bullets = {};
+var chunks = {};
 
 var msgHandlers = {
   controls: function(player, args) {
@@ -111,6 +116,7 @@ function updateMapSize() {
 
 function update(dt, dx) {
   var player, id;
+  var playerId;
   var bullet;
 
   var delBullets = [];
@@ -121,12 +127,62 @@ function update(dt, dx) {
 
     if (bullet.life <= 0) {
       delBullets.push(bullet.id);
+      continue;
+    }
+
+    for (playerId in players) {
+      player = players[playerId];
+      if (player === bullet.player) continue;
+      if (bullet.pos.distance(player.pos) < player.radius + bullet.radius) {
+        playerLoseChunk(player, bullet.radius);
+        delBullets.push(bullet.id);
+      }
     }
   }
   delBullets.forEach(function(id) {
     delete bullets[id];
     broadcast('deleteBullet', id);
   });
+
+  var delChunks = [];
+  for (var chunkId in chunks) {
+    var chunk = chunks[chunkId];
+    chunk.pos.add(chunk.vel.scaled(dx));
+
+    if ((chunk.pos.x < 0 && chunk.vel.x < 0) ||
+        (chunk.pos.x > mapSize.x && chunk.vel.x > 0))
+    {
+      chunk.vel.x = -chunk.vel.x;
+    }
+    if ((chunk.pos.y < 0 && chunk.vel.y < 0) ||
+        (chunk.pos.y > mapSize.y && chunk.vel.y > 0))
+    {
+      chunk.vel.y = -chunk.vel.y;
+    }
+
+    if (chunk.player) {
+      chunk.playerTimeout -= dt;
+      if (chunk.playerTimeout <= 0) {
+        chunk.player = null;
+      }
+    }
+
+    var closestDist = Infinity;
+    for (playerId in players) {
+      player = players[playerId];
+      if (player === chunk.player) continue;
+
+      var vecToPlayer = player.pos.minus(chunk.pos);
+      var dist = vecToPlayer.length();
+      if (dist - player.radius - chunk.radius < CHUNK_ATTRACT_DIST && dist < closestDist) {
+        vecToPlayer.normalize().scale(CHUNK_ATTRACT_SPEED);
+        closestDist = dist;
+        chunk.vel = vecToPlayer;
+      }
+    }
+
+    broadcast('chunkMove', chunk.serialize());
+  }
 
   for (id in players) {
     player = players[id];
@@ -146,6 +202,7 @@ function update(dt, dx) {
       var bulletRadius = DEFAULT_BULLET_RADIUS * player.radius / DEFAULT_RADIUS;
       bullet = new Bullet(player, player.pos.clone(), bulletVel, bulletRadius);
       bullets[bullet.id] = bullet;
+      player.radius -= bullet.radius / 5;
       broadcast('spawnBullet', bullet.serialize());
     } else if (player.cooldown) {
       player.cooldown -= dt;
@@ -197,6 +254,17 @@ function makeId() {
   return nextId++;
 }
 
+function playerLoseChunk(player, radius) {
+  var chunkVelDir = v.unit(Math.random() * 2 * Math.PI);
+  var chunkVel = chunkVelDir.scaled(CHUNK_SPEED);
+  var chunkPos = player.pos.plus(chunkVelDir.scaled(player.radius));
+  var chunk = new Chunk(player, chunkPos, chunkVel, radius);
+  chunks[chunk.id] = chunk;
+  broadcast('spawnChunk', chunk.serialize());
+
+  player.radius -= radius;
+}
+
 function callUpdate() {
   var now = new Date();
   var delta = (now - lastUpdate) / 1000;
@@ -244,6 +312,24 @@ Bullet.prototype.serialize = function() {
     pos: this.pos,
     vel: this.vel,
     player: this.player.id,
+    radius: this.radius,
+  };
+};
+
+function Chunk(player, pos, vel, radius) {
+  this.id = makeId();
+  this.radius = radius;
+  this.pos = pos;
+  this.vel = vel;
+  this.player = player;
+  this.playerTimeout = CHUNK_COLLECT_TIMEOUT;
+}
+
+Chunk.prototype.serialize = function() {
+  return {
+    id: this.id,
+    pos: this.pos,
+    vel: this.vel,
     radius: this.radius,
   };
 };
