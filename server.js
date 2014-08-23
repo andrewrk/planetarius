@@ -34,9 +34,9 @@ var PLAYER_COOLDOWN = 0.3;
 var BULLET_SPEED = 1100 / 60;
 var DEFAULT_BULLET_RADIUS = 4;
 var CHUNK_SPEED = 100 / 60;
-var CHUNK_COLLECT_TIMEOUT = 4;
+var CHUNK_COLLECT_TIMEOUT = 10;
 var CHUNK_ATTRACT_DIST = 150;
-var CHUNK_ATTRACT_SPEED = 50 / 60;
+var CHUNK_ATTRACT_SPEED = 100 / 60;
 var MINIMUM_PLAYER_RADIUS = 8;
 var nextId = 0;
 
@@ -381,7 +381,7 @@ function Player(ws) {
   this.cooldown = 0;
   this.collisionDamping = 0.9;
   this.density = 1;
-  this.name = (Math.random() < 0.5) ? eden.adam() : eden.eve();
+  this.name = eden.eve();
 
   this.ws = ws;
 }

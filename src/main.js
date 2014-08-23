@@ -29,7 +29,12 @@ chem.resources.on('ready', function () {
   var died = false;
   var scroll = v(0, 0);
 
+  var MINI_ME_COLOR = '#536EDB';
+  var MINI_THEM_COLOR = '#D4313F';
+
   var mapSize = engine.size.clone();
+  var miniMapSize = v(80, 45);
+  var miniMapPos = v(0, 0);
 
   var connectingLabel = new chem.Label("connecting...", {
     pos: engine.size.scaled(0.5),
@@ -41,7 +46,7 @@ chem.resources.on('ready', function () {
   });
 
   var debugLabel = new chem.Label("debug", {
-    pos: v(0, 0),
+    pos: v(0, engine.size.y - 20),
     font: "12px Arial",
     textAlign: "left",
     textBaseline: "top",
@@ -62,19 +67,24 @@ chem.resources.on('ready', function () {
         died = false;
         socket.send('spawn');
       }
-      return;
+    } else {
+      connectingLabel.setVisible(false);
     }
-    connectingLabel.setVisible(false);
 
-    scroll = me.pos.minus(engine.size.scaled(0.5));
+    if (me) {
+      scroll = me.pos.minus(engine.size.scaled(0.5));
 
-    me.left = engine.buttonState(button.KeyLeft) || engine.buttonState(button.KeyA);
-    me.right = engine.buttonState(button.KeyRight) || engine.buttonState(button.KeyD);
-    me.up = engine.buttonState(button.KeyUp) || engine.buttonState(button.KeyW);
-    me.down = engine.buttonState(button.KeyDown) || engine.buttonState(button.KeyS);
-    me.fire = engine.buttonState(button.MouseLeft);
-    me.aim = engine.mousePos.plus(scroll).minus(me.pos).normalize();
-    sendControlUpdate();
+      me.left = engine.buttonState(button.KeyLeft) || engine.buttonState(button.KeyA);
+      me.right = engine.buttonState(button.KeyRight) ||
+        engine.buttonState(button.KeyD) || engine.buttonState(button.KeyE);
+      me.up = engine.buttonState(button.KeyUp) ||
+        engine.buttonState(button.KeyW) || engine.buttonState(button.KeyComma);
+      me.down = engine.buttonState(button.KeyDown) ||
+        engine.buttonState(button.KeyS) || engine.buttonState(button.KeyO);
+      me.fire = engine.buttonState(button.MouseLeft);
+      me.aim = engine.mousePos.plus(scroll).minus(me.pos).normalize();
+      sendControlUpdate();
+    }
     for (var id in players) {
       var player = players[id];
 
@@ -122,9 +132,24 @@ chem.resources.on('ready', function () {
     context.strokeRect(0, 0, mapSize.x, mapSize.y);
     batch.draw(context);
 
+    // mini map
+    context.setTransform(1, 0, 0, 1, 0, 0); // load identity
+    var scale = miniMapSize.divBy(mapSize);
+    context.scale(scale.x, scale.y);
+    for (var playerId in players) {
+      var player = players[playerId];
+      context.beginPath();
+      context.arc(player.pos.x, player.pos.y, player.radius, 0, 2 * Math.PI);
+      context.closePath();
+      context.fillStyle = (player === me) ? MINI_ME_COLOR: MINI_THEM_COLOR;
+      context.fill();
+    }
+
     // draw a little fps counter in the corner
     context.setTransform(1, 0, 0, 1, 0, 0); // load identity
     staticBatch.draw(context);
+    context.strokeStyle = '#BFBFBF';
+    context.strokeRect(miniMapPos.x, miniMapPos.y, miniMapSize.x, miniMapSize.y);
   });
   socket.on('connect', function() {
   });
