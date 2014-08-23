@@ -20,16 +20,24 @@ server.listen(port, host, function() {
 });
 
 var mapSize = v(1, 1);
-setInterval(update, 16);
+var lastUpdate = new Date();
 
 
+var EPSILON = 0.00000001;
+var maxSpf = 1 / 20;
+var targetSpf = 1 / 60;
 var DEFAULT_RADIUS = 30;
 var MAX_PLAYER_SPEED = 200 / 60;
 var PLAYER_ACCEL = 5 / 60;
+var PLAYER_COOLDOWN = 0.2;
+var BULLET_SPEED = 1200 / 60;
+var DEFAULT_BULLET_RADIUS = 4;
+var nextId = 0;
 
 var playerCount = 0;
 
 var players = {};
+var bullets = {};
 
 var msgHandlers = {
   controls: function(player, args) {
@@ -38,8 +46,11 @@ var msgHandlers = {
     player.right = args.right;
     player.up = args.up;
     player.down = args.down;
+    player.fire = args.fire;
   },
 };
+
+setInterval(callUpdate, 16);
 wss.on('connection', function(ws) {
   var player = new Player(ws);
   players[player.id] = player;
@@ -98,22 +109,54 @@ function updateMapSize() {
   broadcast('mapSize', mapSize);
 }
 
-function update() {
+function update(dt, dx) {
   var player, id;
+  var bullet;
+
+  var delBullets = [];
+  for (var bulletId in bullets) {
+    bullet = bullets[bulletId];
+    bullet.pos.add(bullet.vel.scaled(dx));
+
+    if (bullet.pos.x < 0 || bullet.pos.y < 0 ||
+        bullet.pos.x > mapSize.x || bullet.pos.y > mapSize.y)
+    {
+      delBullets.push(bullet.id);
+    }
+  }
+  delBullets.forEach(function(id) {
+    delete bullets[id];
+    broadcast('deleteBullet', id);
+  });
+
   for (id in players) {
     player = players[id];
 
-    player.pos.add(player.vel);
+    player.pos.add(player.vel.scaled(dx));
 
     var velDelta = v();
-    var adjustedAccel = PLAYER_ACCEL * DEFAULT_RADIUS / player.radius;
+    var adjustedAccel = dx * PLAYER_ACCEL * DEFAULT_RADIUS / player.radius;
     if (player.left) velDelta.x -= adjustedAccel;
     if (player.right) velDelta.x += adjustedAccel;
     if (player.up) velDelta.y -= adjustedAccel;
     if (player.down) velDelta.y += adjustedAccel;
 
+    if (player.fire && !player.cooldown) {
+      player.cooldown = PLAYER_COOLDOWN;
+      var bulletVel = player.vel.plus(player.aim.scaled(BULLET_SPEED));
+      var bulletRadius = DEFAULT_BULLET_RADIUS * player.radius / DEFAULT_RADIUS;
+      bullet = new Bullet(player, player.pos.clone(), bulletVel, bulletRadius);
+      bullets[bullet.id] = bullet;
+      broadcast('spawnBullet', bullet.serialize());
+    } else if (player.cooldown) {
+      player.cooldown -= dt;
+      if (player.cooldown < 0) {
+        player.cooldown = 0;
+      }
+    }
+
     player.vel.add(velDelta);
-    var adjustedMaxSpeed = MAX_PLAYER_SPEED * DEFAULT_RADIUS / player.radius;
+    var adjustedMaxSpeed = dx * MAX_PLAYER_SPEED * DEFAULT_RADIUS / player.radius;
     if (player.vel.length() > adjustedMaxSpeed) {
       player.vel.normalize().scale(adjustedMaxSpeed);
     }
@@ -151,9 +194,19 @@ function broadcast(name, args) {
   }
 }
 
-var nextId = 0;
 function makeId() {
   return nextId++;
+}
+
+function callUpdate() {
+  var now = new Date();
+  var delta = (now - lastUpdate) / 1000;
+  lastUpdate = now;
+  var dt = delta;
+  if (dt < EPSILON) dt = EPSILON;
+  if (dt > maxSpf) dt = maxSpf;
+  var multiplier = dt / targetSpf;
+  update(dt, multiplier);
 }
 
 function Player(ws) {
@@ -162,6 +215,7 @@ function Player(ws) {
   this.radius = DEFAULT_RADIUS;
   this.vel = v(0, 0);
   this.aim = v(1, 0);
+  this.cooldown = 0;
 
   this.ws = ws;
 }
@@ -172,6 +226,24 @@ Player.prototype.serialize = function() {
     pos: this.pos,
     vel: this.vel,
     aim: this.aim,
+    radius: this.radius,
+  };
+};
+
+function Bullet(player, pos, vel, radius) {
+  this.id = makeId();
+  this.player = player;
+  this.pos = pos;
+  this.vel = vel;
+  this.radius = radius;
+}
+
+Bullet.prototype.serialize = function() {
+  return {
+    id: this.id,
+    pos: this.pos,
+    vel: this.vel,
+    player: this.player.id,
     radius: this.radius,
   };
 };

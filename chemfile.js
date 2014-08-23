@@ -17,5 +17,7 @@ exports.spritesheet = {
     },
     starsmall: {},
     starlarge: {},
+    bullet: {},
+    chunk: {},
   }
 };

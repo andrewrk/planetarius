@@ -21,6 +21,7 @@ chem.resources.on('ready', function () {
   var bgBatch = new chem.Batch();
 
   var players = {};
+  var bullets = {};
   var me = null;
   var scroll = v(0, 0);
 
@@ -59,6 +60,7 @@ chem.resources.on('ready', function () {
     me.right = engine.buttonState(button.KeyRight);
     me.up = engine.buttonState(button.KeyUp);
     me.down = engine.buttonState(button.KeyDown);
+    me.fire = engine.buttonState(button.MouseLeft);
     me.aim = engine.mousePos.plus(scroll).minus(me.pos).normalize();
     sendControlUpdate();
     for (var id in players) {
@@ -69,6 +71,12 @@ chem.resources.on('ready', function () {
       player.turretSprite.pos = player.sprite.pos.plus(player.aim.scaled(player.radius));
       player.turretSprite.scale = player.sprite.scale;
       player.turretSprite.rotation = player.aim.angle();
+    }
+
+    for (var bulletId in bullets) {
+      var bullet = bullets[bulletId];
+      bullet.pos.add(bullet.vel.scaled(dx));
+      bullet.sprite.pos = bullet.pos;
     }
 
     debugLabel.text = String(me.pos);
@@ -110,6 +118,7 @@ chem.resources.on('ready', function () {
     player.turretSprite = new chem.Sprite(ani.turret, {
       batch: batch,
       zOrder: 1,
+      pos: player.pos,
     });
   });
   socket.on('you', function(playerId) {
@@ -124,6 +133,23 @@ chem.resources.on('ready', function () {
   });
   socket.on('mapSize', function(serverMapSize) {
     mapSize = v(serverMapSize);
+  });
+  socket.on('spawnBullet', function(bullet) {
+    bullets[bullet.id] = bullet;
+    bullet.player = players[bullet.player];
+    bullet.pos = v(bullet.pos);
+    bullet.vel = v(bullet.vel);
+    bullet.sprite = new chem.Sprite(ani.bullet, {
+      batch: batch,
+      pos: bullet.player.pos,
+    });
+    bullet.sprite.scale = v((bullet.radius * 2) / bullet.sprite.size.x,
+                            (bullet.radius * 2) / bullet.sprite.size.y);
+  });
+  socket.on('deleteBullet', function(bulletId) {
+    var bullet = bullets[bulletId];
+    bullet.sprite.delete();
+    delete bullets[bulletId];
   });
   function deletePlayer(playerId) {
     var player = players[playerId];
@@ -151,6 +177,7 @@ chem.resources.on('ready', function () {
       right: me.right,
       up: me.up,
       down: me.down,
+      fire: me.fire,
     });
   }
 });
