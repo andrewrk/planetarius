@@ -29,7 +29,7 @@ var targetSpf = 1 / 60;
 var DEFAULT_RADIUS = 30;
 var MAX_PLAYER_SPEED = 200 / 60;
 var PLAYER_ACCEL = 5 / 60;
-var PLAYER_COOLDOWN = 0.2;
+var PLAYER_COOLDOWN = 0.3;
 var BULLET_SPEED = 1100 / 60;
 var DEFAULT_BULLET_RADIUS = 4;
 var CHUNK_SPEED = 100 / 60;
@@ -70,6 +70,7 @@ var msgHandlers = {
 };
 
 setInterval(callUpdate, 16);
+setInterval(sendUpdate, 32);
 wss.on('connection', function(ws) {
   var player = new Player(ws);
   players[player.id] = player;
@@ -138,6 +139,18 @@ function updateMapSize() {
   mapSize.x = 960 * playerCount;
   mapSize.y = mapSize.x / 1920 * 1080;
   broadcast('mapSize', mapSize);
+}
+
+function sendUpdate() {
+  for (var playerId in players) {
+    var player = players[playerId];
+    if (player.deleted) continue;
+    broadcast('move', player.serialize());
+  }
+  for (var chunkId in chunks) {
+    var chunk = chunks[chunkId];
+    broadcast('chunkMove', chunk.serialize());
+  }
 }
 
 function update(dt, dx) {
@@ -214,8 +227,6 @@ function update(dt, dx) {
     if (closestPlayer && closestDist < closestPlayer.radius + chunk.radius) {
       closestPlayer.radius += chunk.radius;
       delChunks.push(chunk.id);
-    } else {
-      broadcast('chunkMove', chunk.serialize());
     }
   }
   delChunks.forEach(function(chunkId) {
@@ -276,7 +287,6 @@ function update(dt, dx) {
       delPlayers.push(player.id);
       continue;
     }
-    broadcast('move', player.serialize());
   }
   delPlayers.forEach(function(playerId) {
     broadcast('delete', playerId);
