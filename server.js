@@ -32,6 +32,10 @@ wss.on('connection', function(ws) {
     broadcast('delete', player.id);
   });
 
+  ws.on('aim', function(aim) {
+    player.aim = v(aim);
+  });
+
   for (var id in players) {
     var otherPlayer = players[id];
     send(ws, 'spawn', otherPlayer.serialize());
@@ -78,8 +82,10 @@ function makeId() {
 function Player(ws) {
   this.id = makeId();
   this.pos = v(Math.random() * mapSize.x, Math.random() * mapSize.y);
-  this.radius = 70;
+  this.radius = 30;
   this.vel = v(0, 0);
+  this.aim = v(1, 0);
+
   this.ws = ws;
 }
 
@@ -88,6 +94,7 @@ Player.prototype.serialize = function() {
     id: this.id,
     pos: this.pos,
     vel: this.vel,
+    aim: this.aim,
     radius: this.radius,
   };
 };
