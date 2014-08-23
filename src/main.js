@@ -78,8 +78,6 @@ chem.resources.on('ready', function () {
       bullet.pos.add(bullet.vel.scaled(dx));
       bullet.sprite.pos = bullet.pos;
     }
-
-    debugLabel.text = String(me.pos);
   });
   engine.on('draw', function (context) {
     // clear canvas to black

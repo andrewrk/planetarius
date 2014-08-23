@@ -117,10 +117,9 @@ function update(dt, dx) {
   for (var bulletId in bullets) {
     bullet = bullets[bulletId];
     bullet.pos.add(bullet.vel.scaled(dx));
+    bullet.life -= dt;
 
-    if (bullet.pos.x < 0 || bullet.pos.y < 0 ||
-        bullet.pos.x > mapSize.x || bullet.pos.y > mapSize.y)
-    {
+    if (bullet.life <= 0) {
       delBullets.push(bullet.id);
     }
   }
@@ -236,6 +235,7 @@ function Bullet(player, pos, vel, radius) {
   this.pos = pos;
   this.vel = vel;
   this.radius = radius;
+  this.life = 0.5;
 }
 
 Bullet.prototype.serialize = function() {
