@@ -61,9 +61,6 @@ var msgHandlers = {
     player.vel = v(0, 0);
     player.aim = v(1, 0);
     player.cooldown = 0;
-    players[player.id] = player;
-    playerCount += 1;
-    updateMapSize();
     broadcast('spawn', player.serialize());
     send(player.ws, 'you', player.id);
   },
@@ -77,12 +74,10 @@ wss.on('connection', function(ws) {
   playerCount += 1;
 
   ws.on('close', function() {
-    if (players[player.id]) {
-      delete players[player.id];
-      playerCount -= 1;
-      broadcast('delete', player.id);
-      updateMapSize();
-    }
+    delete players[player.id];
+    playerCount -= 1;
+    broadcast('delete', player.id);
+    updateMapSize();
   });
 
   ws.on('message', function(data, flags) {
@@ -280,6 +275,14 @@ function update(dt, dx) {
     }
   }
 
+  for (var otherPlayerId in players) {
+    var otherPlayer = players[otherPlayerId];
+    if (otherPlayer === player) continue;
+    if (player.pos.distance(otherPlayer.pos) < player.radius + otherPlayer.radius) {
+      collide(player, otherPlayer);
+    }
+  }
+
   var delPlayers = [];
   for (id in players) {
     player = players[id];
@@ -290,10 +293,29 @@ function update(dt, dx) {
   }
   delPlayers.forEach(function(playerId) {
     broadcast('delete', playerId);
-    delete players[playerId];
-    playerCount -= 1;
-    updateMapSize();
   });
+}
+
+function collide(player, other) {
+  // calculate normal
+  var normal = other.pos.minus(player.pos).normalize();
+  // calculate relative velocity
+  var rv = other.vel.minus(player.vel);
+  // calculate relative velocity in terms of the normal direction
+  var velAlongNormal = rv.dot(normal);
+  // do not resolve if velocities are separating
+  if (velAlongNormal > 0) return;
+  // calculate restitution
+  var e = Math.min(player.collisionDamping, other.collisionDamping);
+  // calculate impulse scalar
+  var j = -(1 + e) * velAlongNormal;
+  var myMass = player.mass();
+  var otherMass = other.mass();
+  j /= 1 / myMass + 1 / otherMass;
+  // apply impulse
+  var impulse = normal.scale(j);
+  player.vel.sub(impulse.scaled(1 / myMass));
+  other.vel.add(impulse.scaled(1 / otherMass));
 }
 
 function send(ws, name, args) {
@@ -356,9 +378,15 @@ function Player(ws) {
   this.vel = v(0, 0);
   this.aim = v(1, 0);
   this.cooldown = 0;
+  this.collisionDamping = 0.9;
+  this.density = 1;
 
   this.ws = ws;
 }
+
+Player.prototype.mass = function() {
+  return this.radius * this.radius * Math.PI * this.density;
+};
 
 Player.prototype.serialize = function() {
   return {
