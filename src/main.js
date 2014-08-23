@@ -86,6 +86,8 @@ chem.resources.on('ready', function () {
       player.turretSprite.pos = player.sprite.pos.plus(player.aim.scaled(player.radius));
       player.turretSprite.scale = player.sprite.scale;
       player.turretSprite.rotation = player.aim.angle();
+
+      player.label.pos = player.pos.offset(0, -player.radius);
     }
 
     for (var bulletId in bullets) {
@@ -146,6 +148,14 @@ chem.resources.on('ready', function () {
       batch: batch,
       zOrder: 1,
       pos: player.pos,
+    });
+    player.label = new chem.Label(player.name, {
+      pos: player.pos.offset(0, -player.radius),
+      font: "18px Arial",
+      textAlign: "center",
+      textBaseline: "center",
+      fillStyle: "#ffffff",
+      batch: batch,
     });
   });
   socket.on('you', function(playerId) {
@@ -208,6 +218,7 @@ chem.resources.on('ready', function () {
     if (!player) return;
     player.sprite.delete();
     player.turretSprite.delete();
+    player.label.delete();
     delete players[playerId];
     if (player === me) {
       me = null;

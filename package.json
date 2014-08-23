@@ -11,7 +11,8 @@
     "ws": "~0.4.32",
     "express": "~4.8.5",
     "serve-static": "~1.5.3",
-    "vec2d": "~0.3.0"
+    "vec2d": "~0.3.0",
+    "node-eden": "0.0.3"
   },
   "devDependencies": {
     "node-dev": "~2.3.0"

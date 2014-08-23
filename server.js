@@ -5,6 +5,7 @@ var v = require('vec2d');
 var express = require('express');
 var serveStatic = require('serve-static');
 var app = express();
+var eden = require('node-eden');
 
 var server = http.createServer(app);
 var wss = new WebSocketServer({
@@ -131,7 +132,7 @@ function updateMapSize() {
     mapSize = v(1, 1);
     return;
   }
-  mapSize.x = 960 * playerCount;
+  mapSize.x = 960 + (playerCount - 1) * 300;
   mapSize.y = mapSize.x / 1920 * 1080;
   broadcast('mapSize', mapSize);
 }
@@ -380,6 +381,7 @@ function Player(ws) {
   this.cooldown = 0;
   this.collisionDamping = 0.9;
   this.density = 1;
+  this.name = (Math.random() < 0.5) ? eden.adam() : eden.eve();
 
   this.ws = ws;
 }
@@ -395,6 +397,7 @@ Player.prototype.serialize = function() {
     vel: this.vel,
     aim: this.aim,
     radius: this.radius,
+    name: this.name,
   };
 };
 
