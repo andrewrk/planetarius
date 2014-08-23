@@ -15,5 +15,7 @@ exports.spritesheet = {
     turret: {
       anchor: {x: 20, y: 62},
     },
+    starsmall: {},
+    starlarge: {},
   }
 };

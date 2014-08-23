@@ -17,7 +17,7 @@ chem.resources.on('ready', function () {
 
   var batch = new chem.Batch();
   var staticBatch = new chem.Batch();
-  var boom = new chem.Sound('sfx/boom.ogg');
+  var bgBatch = new chem.Batch();
 
   var players = {};
   var me = null;
@@ -42,6 +42,8 @@ chem.resources.on('ready', function () {
     fillStyle: "#ffffff",
     batch: staticBatch,
   });
+
+  generateStars(v(1080 * 4, 1920 * 4), 0.00005);
 
   var fpsLabel = engine.createFpsLabel();
   staticBatch.add(fpsLabel);
@@ -68,6 +70,12 @@ chem.resources.on('ready', function () {
     // clear canvas to black
     context.fillStyle = '#000000'
     context.fillRect(0, 0, engine.size.x, engine.size.y);
+
+    var bgBackFactor = 0.10;
+    var bgBackScroll = scroll.scaled(bgBackFactor).neg().floor();
+    context.setTransform(1, 0, 0, 1, 0, 0); // load identity
+    context.translate(bgBackScroll.x, bgBackScroll.y);
+    bgBatch.draw(context);
 
     // draw all sprites in batch
     context.setTransform(1, 0, 0, 1, 0, 0); // load identity
@@ -115,5 +123,17 @@ chem.resources.on('ready', function () {
     player.sprite.delete();
     player.turretSprite.delete();
     delete players[playerId];
+  }
+
+  function generateStars(size, density) {
+    var area = size.x * size.y;
+    var count = density * area;
+    for (var i = 0; i < count; i += 1) {
+      var name = Math.random() > 0.50 ? "starsmall" : "starlarge";
+      var sprite = new chem.Sprite(ani[name], {
+        batch: bgBatch,
+        pos: v(Math.random() * size.x, Math.random() * size.y),
+      });
+    }
   }
 });
