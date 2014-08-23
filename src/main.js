@@ -68,10 +68,10 @@ chem.resources.on('ready', function () {
 
     scroll = me.pos.minus(engine.size.scaled(0.5));
 
-    me.left = engine.buttonState(button.KeyLeft);
-    me.right = engine.buttonState(button.KeyRight);
-    me.up = engine.buttonState(button.KeyUp);
-    me.down = engine.buttonState(button.KeyDown);
+    me.left = engine.buttonState(button.KeyLeft) || engine.buttonState(button.KeyA);
+    me.right = engine.buttonState(button.KeyRight) || engine.buttonState(button.KeyD);
+    me.up = engine.buttonState(button.KeyUp) || engine.buttonState(button.KeyW);
+    me.down = engine.buttonState(button.KeyDown) || engine.buttonState(button.KeyS);
     me.fire = engine.buttonState(button.MouseLeft);
     me.aim = engine.mousePos.plus(scroll).minus(me.pos).normalize();
     sendControlUpdate();
