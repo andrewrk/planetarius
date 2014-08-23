@@ -22,13 +22,22 @@ server.listen(port, host, function() {
 var mapSize = v(1, 1);
 setInterval(update, 16);
 
+
+var DEFAULT_RADIUS = 30;
+var MAX_PLAYER_SPEED = 200 / 60;
+var PLAYER_ACCEL = 5 / 60;
+
 var playerCount = 0;
 
 var players = {};
 
 var msgHandlers = {
-  aim: function(player, args) {
-    player.aim = v(args);
+  controls: function(player, args) {
+    player.aim = v(args.aim);
+    player.left = args.left;
+    player.right = args.right;
+    player.up = args.up;
+    player.down = args.down;
   },
 };
 wss.on('connection', function(ws) {
@@ -95,6 +104,30 @@ function update() {
     player = players[id];
 
     player.pos.add(player.vel);
+
+    var velDelta = v();
+    var adjustedAccel = PLAYER_ACCEL * DEFAULT_RADIUS / player.radius;
+    if (player.left) velDelta.x -= adjustedAccel;
+    if (player.right) velDelta.x += adjustedAccel;
+    if (player.up) velDelta.y -= adjustedAccel;
+    if (player.down) velDelta.y += adjustedAccel;
+
+    player.vel.add(velDelta);
+    var adjustedMaxSpeed = MAX_PLAYER_SPEED * DEFAULT_RADIUS / player.radius;
+    if (player.vel.length() > adjustedMaxSpeed) {
+      player.vel.normalize().scale(adjustedMaxSpeed);
+    }
+
+    if ((player.pos.x < 0 && player.vel.x < 0) ||
+        (player.pos.x > mapSize.x && player.vel.x > 0))
+    {
+      player.vel.x = -player.vel.x;
+    }
+    if ((player.pos.y < 0 && player.vel.y < 0) ||
+        (player.pos.y > mapSize.y && player.vel.y > 0))
+    {
+      player.vel.y = -player.vel.y;
+    }
   }
 
   for (id in players) {
@@ -126,7 +159,7 @@ function makeId() {
 function Player(ws) {
   this.id = makeId();
   this.pos = v(Math.random() * mapSize.x, Math.random() * mapSize.y);
-  this.radius = 30;
+  this.radius = DEFAULT_RADIUS;
   this.vel = v(0, 0);
   this.aim = v(1, 0);
 

@@ -1,6 +1,7 @@
 var chem = require("chem");
 var ani = chem.resources.animations;
 var v = chem.vec2d;
+var button = chem.button;
 var ani = chem.resources.animations;
 var canvas = document.getElementById("game");
 var engine = new chem.Engine(canvas);
@@ -54,8 +55,12 @@ chem.resources.on('ready', function () {
 
     scroll = me.pos.minus(engine.size.scaled(0.5));
 
+    me.left = engine.buttonState(button.KeyLeft);
+    me.right = engine.buttonState(button.KeyRight);
+    me.up = engine.buttonState(button.KeyUp);
+    me.down = engine.buttonState(button.KeyDown);
     me.aim = engine.mousePos.plus(scroll).minus(me.pos).normalize();
-    socket.send('aim', me.aim);
+    sendControlUpdate();
     for (var id in players) {
       var player = players[id];
       player.sprite.pos = player.pos;
@@ -65,13 +70,15 @@ chem.resources.on('ready', function () {
       player.turretSprite.scale = player.sprite.scale;
       player.turretSprite.rotation = player.aim.angle();
     }
+
+    debugLabel.text = String(me.pos);
   });
   engine.on('draw', function (context) {
     // clear canvas to black
     context.fillStyle = '#000000'
     context.fillRect(0, 0, engine.size.x, engine.size.y);
 
-    var bgBackFactor = 0.10;
+    var bgBackFactor = 0.60;
     var bgBackScroll = scroll.scaled(bgBackFactor).neg().floor();
     context.setTransform(1, 0, 0, 1, 0, 0); // load identity
     context.translate(bgBackScroll.x, bgBackScroll.y);
@@ -135,5 +142,15 @@ chem.resources.on('ready', function () {
         pos: v(Math.random() * size.x, Math.random() * size.y),
       });
     }
+  }
+
+  function sendControlUpdate() {
+    socket.send('controls', {
+      aim: me.aim,
+      left: me.left,
+      right: me.right,
+      up: me.up,
+      down: me.down,
+    });
   }
 });
