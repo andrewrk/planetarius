@@ -30,12 +30,13 @@ var DEFAULT_RADIUS = 30;
 var MAX_PLAYER_SPEED = 200 / 60;
 var PLAYER_ACCEL = 5 / 60;
 var PLAYER_COOLDOWN = 0.2;
-var BULLET_SPEED = 1200 / 60;
+var BULLET_SPEED = 1100 / 60;
 var DEFAULT_BULLET_RADIUS = 4;
 var CHUNK_SPEED = 100 / 60;
 var CHUNK_COLLECT_TIMEOUT = 4;
 var CHUNK_ATTRACT_DIST = 150;
 var CHUNK_ATTRACT_SPEED = 50 / 60;
+var MINIMUM_PLAYER_RADIUS = 8;
 var nextId = 0;
 
 var playerCount = 0;
@@ -53,6 +54,19 @@ var msgHandlers = {
     player.down = args.down;
     player.fire = args.fire;
   },
+  spawn: function(player, args) {
+    player.deleted = false;
+    player.pos = v(Math.random() * mapSize.x, Math.random() * mapSize.y);
+    player.radius = DEFAULT_RADIUS;
+    player.vel = v(0, 0);
+    player.aim = v(1, 0);
+    player.cooldown = 0;
+    players[player.id] = player;
+    playerCount += 1;
+    updateMapSize();
+    broadcast('spawn', player.serialize());
+    send(player.ws, 'you', player.id);
+  },
 };
 
 setInterval(callUpdate, 16);
@@ -62,10 +76,12 @@ wss.on('connection', function(ws) {
   playerCount += 1;
 
   ws.on('close', function() {
-    delete players[player.id];
-    playerCount -= 1;
-    broadcast('delete', player.id);
-    updateMapSize();
+    if (players[player.id]) {
+      delete players[player.id];
+      playerCount -= 1;
+      broadcast('delete', player.id);
+      updateMapSize();
+    }
   });
 
   ws.on('message', function(data, flags) {
@@ -101,6 +117,16 @@ wss.on('connection', function(ws) {
   }
   send(ws, 'you', player.id);
 
+  for (var bulletId in bullets) {
+    var bullet = bullets[bulletId];
+    send(ws, 'spawnBullet', bullet.serialize());
+  }
+
+  for (var chunkId in chunks) {
+    var chunk = chunks[chunkId];
+    send(ws, 'spawnChunk', chunk.serialize());
+  }
+
   updateMapSize();
 });
 
@@ -132,6 +158,7 @@ function update(dt, dx) {
 
     for (playerId in players) {
       player = players[playerId];
+      if (player.deleted) continue;
       if (player === bullet.player) continue;
       if (bullet.pos.distance(player.pos) < player.radius + bullet.radius) {
         playerLoseChunk(player, bullet.radius);
@@ -172,6 +199,7 @@ function update(dt, dx) {
     for (playerId in players) {
       player = players[playerId];
       if (player === chunk.player) continue;
+      if (player.deleted) continue;
 
       var vecToPlayer = player.pos.minus(chunk.pos);
       var dist = vecToPlayer.length();
@@ -197,6 +225,7 @@ function update(dt, dx) {
 
   for (id in players) {
     player = players[id];
+    if (player.deleted) continue;
 
     player.pos.add(player.vel.scaled(dx));
 
@@ -213,7 +242,7 @@ function update(dt, dx) {
       var bulletRadius = DEFAULT_BULLET_RADIUS * player.radius / DEFAULT_RADIUS;
       bullet = new Bullet(player, player.pos.clone(), bulletVel, bulletRadius);
       bullets[bullet.id] = bullet;
-      player.radius -= bullet.radius / 5;
+      playerLoseRadius(player, bullet.radius / 5);
       broadcast('spawnBullet', bullet.serialize());
     } else if (player.cooldown) {
       player.cooldown -= dt;
@@ -240,10 +269,21 @@ function update(dt, dx) {
     }
   }
 
+  var delPlayers = [];
   for (id in players) {
     player = players[id];
+    if (player.deleted) {
+      delPlayers.push(player.id);
+      continue;
+    }
     broadcast('move', player.serialize());
   }
+  delPlayers.forEach(function(playerId) {
+    broadcast('delete', playerId);
+    delete players[playerId];
+    playerCount -= 1;
+    updateMapSize();
+  });
 }
 
 function send(ws, name, args) {
@@ -273,7 +313,19 @@ function playerLoseChunk(player, radius) {
   chunks[chunk.id] = chunk;
   broadcast('spawnChunk', chunk.serialize());
 
+  playerLoseRadius(player, radius);
+}
+
+function playerLoseRadius(player, radius) {
   player.radius -= radius;
+  if (player.radius < MINIMUM_PLAYER_RADIUS) {
+    player.deleted = true;
+    if (player.radius > 0) {
+      var extraChunk = new Chunk(null, player.pos.clone(), player.vel.clone(), player.radius);
+      chunks[extraChunk.id] = extraChunk;
+      broadcast('spawnChunk', extraChunk.serialize());
+    }
+  }
 }
 
 function callUpdate() {

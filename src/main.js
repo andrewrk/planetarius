@@ -26,6 +26,7 @@ chem.resources.on('ready', function () {
   var bullets = {};
   var chunks = {};
   var me = null;
+  var died = false;
   var scroll = v(0, 0);
 
   var mapSize = engine.size.clone();
@@ -54,8 +55,16 @@ chem.resources.on('ready', function () {
   staticBatch.add(fpsLabel);
 
   engine.on('update', function (dt, dx) {
-    connectingLabel.setVisible(!me);
-    if (!me) return;
+    if (!me) {
+      connectingLabel.setVisible(true);
+      connectingLabel.text = died ? "You are fodder. Press R to respawn." : "connecting...";
+      if (died && engine.buttonState(button.KeyR)) {
+        died = false;
+        socket.send('spawn');
+      }
+      return;
+    }
+    connectingLabel.setVisible(false);
 
     scroll = me.pos.minus(engine.size.scaled(0.5));
 
@@ -123,7 +132,9 @@ chem.resources.on('ready', function () {
     Object.keys(bullets).forEach(deleteBullet);
     me = null;
   });
-  socket.on('delete', deletePlayer);
+  socket.on('delete', function(playerId) {
+    deletePlayer(playerId, true);
+  });
   socket.on('spawn', function(player) {
     players[player.id] = player;
     player.pos = v(player.pos);
@@ -192,11 +203,16 @@ chem.resources.on('ready', function () {
     bullet.sprite.delete();
     delete bullets[bulletId];
   }
-  function deletePlayer(playerId) {
+  function deletePlayer(playerId, _died) {
     var player = players[playerId];
+    if (!player) return;
     player.sprite.delete();
     player.turretSprite.delete();
     delete players[playerId];
+    if (player === me) {
+      me = null;
+      died = !!_died;
+    }
   }
 
   function generateStars(size, density) {
