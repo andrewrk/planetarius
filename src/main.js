@@ -119,6 +119,8 @@ chem.resources.on('ready', function () {
   });
   socket.on('disconnect', function(){
     Object.keys(players).forEach(deletePlayer);
+    Object.keys(chunks).forEach(deleteChunk);
+    Object.keys(bullets).forEach(deleteBullet);
     me = null;
   });
   socket.on('delete', deletePlayer);
@@ -177,11 +179,19 @@ chem.resources.on('ready', function () {
     chunk.vel = v(serverChunk.vel);
     chunk.radius = serverChunk.radius;
   });
-  socket.on('deleteBullet', function(bulletId) {
+  socket.on('deleteBullet', deleteBullet);
+  socket.on('deleteChunk', deleteChunk);
+  
+  function deleteChunk(chunkId) {
+    var chunk = chunks[chunkId];
+    chunk.sprite.delete();
+    delete chunks[chunkId];
+  }
+  function deleteBullet(bulletId) {
     var bullet = bullets[bulletId];
     bullet.sprite.delete();
     delete bullets[bulletId];
-  });
+  }
   function deletePlayer(playerId) {
     var player = players[playerId];
     player.sprite.delete();

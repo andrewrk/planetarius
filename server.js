@@ -109,7 +109,7 @@ function updateMapSize() {
     mapSize = v(1, 1);
     return;
   }
-  mapSize.x = 960 * 1.5 * playerCount;
+  mapSize.x = 960 * playerCount;
   mapSize.y = mapSize.x / 1920 * 1080;
   broadcast('mapSize', mapSize);
 }
@@ -168,6 +168,7 @@ function update(dt, dx) {
     }
 
     var closestDist = Infinity;
+    var closestPlayer = null;
     for (playerId in players) {
       player = players[playerId];
       if (player === chunk.player) continue;
@@ -178,11 +179,21 @@ function update(dt, dx) {
         vecToPlayer.normalize().scale(CHUNK_ATTRACT_SPEED);
         closestDist = dist;
         chunk.vel = vecToPlayer;
+        closestPlayer = player;
       }
     }
 
-    broadcast('chunkMove', chunk.serialize());
+    if (closestPlayer && closestDist < closestPlayer.radius + chunk.radius) {
+      closestPlayer.radius += chunk.radius;
+      delChunks.push(chunk.id);
+    } else {
+      broadcast('chunkMove', chunk.serialize());
+    }
   }
+  delChunks.forEach(function(chunkId) {
+    delete chunks[chunkId];
+    broadcast('deleteChunk', chunkId);
+  });
 
   for (id in players) {
     player = players[id];
