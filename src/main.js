@@ -255,6 +255,14 @@ chem.resources.on('ready', function () {
       context.fillStyle = (player === me) ? MINI_ME_COLOR: MINI_THEM_COLOR;
       context.fill();
     }
+    for (var turretId in turrets) {
+      var turret = turrets[turretId];
+      context.beginPath();
+      context.arc(turret.pos.x, turret.pos.y, turret.radius, 0, 2 * Math.PI);
+      context.closePath();
+      context.fillStyle = (turret.player === me) ? MINI_ME_COLOR: MINI_THEM_COLOR;
+      context.fill();
+    }
 
     // draw a little fps counter in the corner
     context.setTransform(1, 0, 0, 1, 0, 0); // load identity
