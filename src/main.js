@@ -208,6 +208,7 @@ chem.resources.on('ready', function () {
       turret.sprite.rotation = turret.aim.angle();
       turret.sprite.scale = v((turret.radius * 2) / turret.sprite.size.y,
                               (turret.radius * 2) / turret.sprite.size.y);
+      turret.label.pos = turret.pos.offset(0, -turret.radius);
     }
   });
   engine.on('draw', function (context) {
@@ -400,6 +401,15 @@ chem.resources.on('ready', function () {
     });
     turret.sprite.scale = v((turret.radius * 2) / turret.sprite.size.y,
                             (turret.radius * 2) / turret.sprite.size.y);
+
+    turret.label = new chem.Label(turret.player.name + "'s turret", {
+      pos: turret.pos.offset(0, -turret.radius),
+      font: "14px Arial",
+      textAlign: "center",
+      textBaseline: "center",
+      fillStyle: "#ffffff",
+      batch: batch,
+    });
     if (turret.player === me) {
       playSfx(sfxDropTurret);
     }
@@ -417,6 +427,7 @@ chem.resources.on('ready', function () {
   function deleteTurret(turretId) {
     var turret = turrets[turretId];
     turret.sprite.delete();
+    turret.label.delete();
     delete turrets[turretId];
   }
   
