@@ -615,7 +615,7 @@ function Player(ws) {
   this.cooldown = 0;
   this.collisionDamping = 0.9;
   this.density = 1;
-  this.name = eden.eve();
+  this.name = Math.random() < 0.50 ? eden.eve() : eden.adam();
   this.level = 0;
   this.shield = null;
   this.kills = 0;
@@ -702,5 +702,6 @@ Turret.prototype.serialize = function() {
     vel: this.vel,
     radius: this.radius,
     aim: this.aim,
+    player: this.player.id,
   };
 };

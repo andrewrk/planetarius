@@ -23,6 +23,24 @@ chem.resources.on('ready', function () {
   var staticBatch = new chem.Batch();
   var bgBatch = new chem.Batch();
 
+  var sfxDie = new chem.Sound('sfx/die.ogg');
+  var sfxDropTurret = new chem.Sound('sfx/dropturret.ogg');
+  var sfxGain = new chem.Sound('sfx/gain.ogg');
+  var sfxHit = new chem.Sound('sfx/hit.ogg');
+  var sfxKill = new chem.Sound('sfx/kill.ogg');
+  var sfxLevelUp = new chem.Sound('sfx/levelup.ogg');
+  var sfxShoot = new chem.Sound('sfx/shoot.ogg');
+
+  sfxKill.setVolume(0.20);
+  sfxLevelUp.setVolume(0.20);
+  sfxHit.setVolume(0.20);
+  sfxDie.setVolume(0.20);
+  sfxGain.setVolume(0.30);
+  sfxDropTurret.setVolume(0.50);
+  sfxShoot.setVolume(0.50);
+
+  var muted = !!localStorage.muted;
+
   var players = {};
   var bullets = {};
   var chunks = {};
@@ -63,6 +81,7 @@ chem.resources.on('ready', function () {
     textBaseline: "top",
     fillStyle: "#ffffff",
     batch: staticBatch,
+    visible: false,
   });
 
   var progressLabel = new chem.Label("Next Level", {
@@ -71,6 +90,11 @@ chem.resources.on('ready', function () {
     textAlign: "center",
     textBaseline: "middle",
     fillStyle: "#B7CCFD",
+  });
+
+  var volSprite = new chem.Sprite(muted ? ani.volno : ani.volyes, {
+    pos: progressBarStart.offset(progressBarSize.x + 12, -6),
+    batch: staticBatch,
   });
 
   var controlsSprite = new chem.Sprite(ani.controls, {
@@ -87,6 +111,12 @@ chem.resources.on('ready', function () {
     if (btn === button.KeyBackspace) {
       // nothing to see here, move along
       socket.send("upgrayde");
+    } else if (btn === button.MouseLeft) {
+      if (volSprite.hitTest(engine.mousePos)) {
+        muted = !muted;
+        localStorage.muted = muted ? "true" : "";
+        volSprite.setAnimation(muted ? ani.volno : ani.volyes);
+      }
     }
   });
 
@@ -267,16 +297,28 @@ chem.resources.on('ready', function () {
     player.pos = v(serverPlayer.pos);
     player.vel = v(serverPlayer.vel);
     player.aim = v(serverPlayer.aim);
-    player.radius = serverPlayer.radius;
+    if (player.radius !== serverPlayer.radius) {
+      if (player === me) {
+        playSfx((serverPlayer.radius > player.radius) ? sfxGain : sfxHit);
+      }
+      player.radius = serverPlayer.radius;
+    }
     player.shield = serverPlayer.shield;
     if (serverPlayer.kills !== player.kills) {
       player.kills = serverPlayer.kills;
       player.label.text = playerName(player);
+
+      if (player === me) {
+        playSfx(sfxKill);
+      }
     }
     if (player.level !== serverPlayer.level) {
       player.level = serverPlayer.level;
       player.sprite.setAnimation(getPlayerAnimation(player));
       player.label.text = playerName(player);
+      if (player === me) {
+        playSfx(sfxLevelUp);
+      }
     }
   });
   socket.on('mapSize', function(serverMapSize) {
@@ -293,6 +335,9 @@ chem.resources.on('ready', function () {
     });
     bullet.sprite.scale = v((bullet.radius * 2) / bullet.sprite.size.x,
                             (bullet.radius * 2) / bullet.sprite.size.y);
+    if (bullet.player === me) {
+      playSfx(sfxShoot);
+    }
   });
   socket.on('bulletMove', function(serverBullet) {
     var bullet = bullets[serverBullet.id];
@@ -325,12 +370,16 @@ chem.resources.on('ready', function () {
     turret.pos = v(turret.pos);
     turret.vel = v(turret.vel);
     turret.aim = v(turret.aim);
+    turret.player = players[turret.player];
     turret.sprite = new chem.Sprite(ani.dropturret, {
       batch: batch,
       pos: turret.pos,
     });
     turret.sprite.scale = v((turret.radius * 2) / turret.sprite.size.y,
                             (turret.radius * 2) / turret.sprite.size.y);
+    if (turret.player === me) {
+      playSfx(sfxDropTurret);
+    }
   });
   socket.on('turretMove', function(serverTurret) {
     var turret = turrets[serverTurret.id];
@@ -338,6 +387,7 @@ chem.resources.on('ready', function () {
     turret.vel = v(serverTurret.vel);
     turret.aim = v(serverTurret.aim);
     turret.radius = serverTurret.radius;
+    turret.player = players[serverTurret.player];
   });
   socket.on('deleteTurret', deleteTurret);
 
@@ -368,6 +418,7 @@ chem.resources.on('ready', function () {
       me = null;
       died = !!_died;
       if (died) {
+        playSfx(sfxDie);
         respawnTime = 3;
       }
     }
@@ -408,5 +459,9 @@ chem.resources.on('ready', function () {
       level = playerLevelAnimations.length - 1;
     }
     return playerLevelAnimations[level];
+  }
+  function playSfx(sfx) {
+    if (muted) return;
+    sfx.play();
   }
 });

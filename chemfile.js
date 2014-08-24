@@ -15,6 +15,12 @@ exports.spritesheet = {
     world2: {},
     world3: {},
     world4: {},
+    volyes: {
+      anchor: 'topleft',
+    },
+    volno: {
+      anchor: 'topleft',
+    },
     dropturret: {
       anchor: {x: 50, y: 50},
     },
