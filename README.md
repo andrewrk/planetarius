@@ -4,6 +4,8 @@ Ludum dare 30 entry.
 
 End of day 1 YouTube video: https://www.youtube.com/watch?v=4up9g0I7dHI
 
+![](https://s3.amazonaws.com/superjoe/temp/title.png)
+
 ## How to set up the game
 
  0. If you're using Windows, give up.
