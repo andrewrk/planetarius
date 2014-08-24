@@ -14,6 +14,7 @@ exports.spritesheet = {
     world1: {},
     world2: {},
     world3: {},
+    world4: {},
     dropturret: {
       anchor: {x: 50, y: 50},
     },

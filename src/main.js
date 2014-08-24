@@ -31,7 +31,7 @@ chem.resources.on('ready', function () {
   var me = null;
   var died = false;
   var scroll = v(0, 0);
-  var playerLevelAnimations = [ani.world1, ani.world2, ani.world3];
+  var playerLevelAnimations = [ani.world1, ani.world2, ani.world3, ani.world4];
 
   var MINI_ME_COLOR = '#536EDB';
   var MINI_THEM_COLOR = '#D4313F';
@@ -216,7 +216,7 @@ chem.resources.on('ready', function () {
     player.vel = v(player.vel);
     player.aim = v(player.aim);
 
-    player.sprite = new chem.Sprite(playerLevelAnimations[player.level], { batch: batch });
+    player.sprite = new chem.Sprite(getPlayerAnimation(player), { batch: batch });
     player.turretSprite = new chem.Sprite(ani.turret, {
       batch: batch,
       zOrder: 1,
@@ -247,7 +247,7 @@ chem.resources.on('ready', function () {
     }
     if (player.level !== serverPlayer.level) {
       player.level = serverPlayer.level;
-      player.sprite.setAnimation(playerLevelAnimations[player.level]);
+      player.sprite.setAnimation(getPlayerAnimation(player));
       player.label.text = playerName(player);
     }
   });
@@ -366,5 +366,15 @@ chem.resources.on('ready', function () {
   }
   function playerName(player) {
     return player.name + " Lvl:" + (player.level + 1) + " Kil:" + player.kills;
+  }
+  function getPlayerAnimation(player) {
+    var level = Math.floor(player.level);
+    if (level < 0) {
+      level = 0;
+    }
+    if (level > playerLevelAnimations.length - 1) {
+      level = playerLevelAnimations.length - 1;
+    }
+    return playerLevelAnimations[level];
   }
 });

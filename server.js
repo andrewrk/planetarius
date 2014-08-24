@@ -40,7 +40,7 @@ var CHUNK_ATTRACT_DIST = 150;
 var CHUNK_ATTRACT_SPEED = 100 / fps;
 var MINIMUM_PLAYER_RADIUS = 8;
 var NEXT_LEVEL_RADIUS = 80;
-var MAX_LEVEL = 2;
+var MAX_LEVEL = 3;
 var SHIELD_ANGULAR_SPEED = Math.PI * 0.80 / fps;
 var DEFAULT_TURRET_RADIUS = 8;
 var BULLET_LIFE = 0.5;
@@ -72,7 +72,6 @@ var msgHandlers = {
     player.level = 0;
     player.shield = null;
     player.kills = 0;
-    player.hasGun = true;
     player.hasTurret = false;
     broadcast('spawn', player.serialize());
     send(player.ws, 'you', player.id);
@@ -360,7 +359,7 @@ function update(dt, dx) {
     if (player.up) velDelta.y -= adjustedAccel;
     if (player.down) velDelta.y += adjustedAccel;
 
-    if (player.hasGun && player.fire && !player.cooldown) {
+    if (player.fire && !player.cooldown) {
       player.cooldown = PLAYER_COOLDOWN;
       bulletVel = player.vel.plus(player.aim.scaled(BULLET_SPEED));
       bulletRadius = DEFAULT_BULLET_RADIUS * player.radius / DEFAULT_RADIUS;
@@ -368,18 +367,6 @@ function update(dt, dx) {
       bullets[bullet.id] = bullet;
       playerLoseRadius(player, bullet.radius / 5);
       broadcast('spawnBullet', bullet.serialize());
-    } else if (player.hasTurret && player.fire && !player.cooldown) {
-      var turretRadius = DEFAULT_TURRET_RADIUS * player.radius / DEFAULT_RADIUS;
-      if (turretRadius > MINIMUM_PLAYER_RADIUS &&
-          player.radius - turretRadius > MINIMUM_PLAYER_RADIUS)
-      {
-        player.cooldown = PLAYER_COOLDOWN;
-        var turretPos = player.pos.plus(player.aim.scaled(player.radius + 8));
-        turret = new Turret(player, turretPos, turretRadius);
-        turrets[turret.id] = turret;
-        playerLoseRadius(player, turret.radius);
-        broadcast('spawnTurret', turret.serialize());
-      }
     } else if (player.cooldown) {
       player.cooldown -= dt;
       if (player.cooldown < 0) {
@@ -449,30 +436,70 @@ function update(dt, dx) {
   }
   delTurrets.forEach(function(turretId) {
     broadcast('deleteTurret', turretId);
+    delete turrets[turretId];
   });
+}
+
+function getPlayerTurret(player) {
+  for (var turretId in turrets) {
+    var turret = turrets[turretId];
+    if (turret.player === player) {
+      return turret;
+    }
+  }
+  return null;
 }
 
 function playerGainRadius(player, radius) {
   player.radius += radius;
 
-  if (player.radius > NEXT_LEVEL_RADIUS && player.level < MAX_LEVEL) {
-    var lostRadius = player.radius - DEFAULT_RADIUS;
-    player.level += 1;
-    player.radius = DEFAULT_RADIUS;
+  var lostRadius;
+  var i;
+  if (player.radius > NEXT_LEVEL_RADIUS) {
+    var playerTurret = getPlayerTurret(player);
+    if (player.level >= 2 && !playerTurret) {
+      var turretRadius = DEFAULT_TURRET_RADIUS * player.radius / DEFAULT_RADIUS;
+      if (turretRadius > MINIMUM_PLAYER_RADIUS &&
+          player.radius - turretRadius > MINIMUM_PLAYER_RADIUS)
+      {
+        var turret = new Turret(player, player.pos.clone(), turretRadius);
+        turrets[turret.id] = turret;
+        playerLoseRadius(player, turret.radius);
+        broadcast('spawnTurret', turret.serialize());
+      }
+    } else if (player.level < MAX_LEVEL) {
+      lostRadius = player.radius - DEFAULT_RADIUS;
+      player.level += 1;
+      player.radius = DEFAULT_RADIUS;
 
-    player.hasGun = (player.level === 0 || player.level === 1);
-    player.shield = (player.level === 1) ? 0 : null;
-    player.hasTurret = (player.level === 2);
+      player.shield = (player.level === 1 || player.level === 3) ? 0 : null;
+      player.hasTurret = (player.level >= 2);
 
-    var chunkCount = 12;
-    var chunkRadius= lostRadius / chunkCount;
-    for (var i = 0; i < chunkCount; i += 1) {
-      var chunkVelDir = v.unit(Math.PI * 2 * (i / chunkCount));
-      var chunkVel = chunkVelDir.scaled(CHUNK_SPEED * 2);
-      var chunkPos = player.pos.plus(chunkVelDir.scaled(player.radius));
-      var chunk = new Chunk(player, chunkPos, chunkVel, chunkRadius);
-      chunks[chunk.id] = chunk;
-      broadcast('spawnChunk', chunk.serialize());
+      var chunkCount = 12;
+      var chunkRadius= lostRadius / chunkCount;
+      for (i = 0; i < chunkCount; i += 1) {
+        var chunkVelDir = v.unit(Math.PI * 2 * (i / chunkCount));
+        var chunkVel = chunkVelDir.scaled(CHUNK_SPEED * 2);
+        var chunkPos = player.pos.plus(chunkVelDir.scaled(player.radius));
+        var chunk = new Chunk(player, chunkPos, chunkVel, chunkRadius);
+        chunks[chunk.id] = chunk;
+        broadcast('spawnChunk', chunk.serialize());
+      }
+    } else {
+      // we need the player's radius to go down. shoot bullets in all directions
+      lostRadius = player.radius - DEFAULT_RADIUS;
+      player.level += 1;
+      player.radius = DEFAULT_RADIUS;
+      var radiusToLose = player.radius / 2;
+      var bulletCount = 12;
+      var bulletRadius = lostRadius / bulletCount;
+      for (i = 0; i < bulletCount; i += 1) {
+        var bulletVelDir = v.unit(Math.PI * 2 * (i / bulletCount));
+        var bulletVel = bulletVelDir.scaled(BULLET_SPEED);
+        var bullet = new Bullet(player, player.pos.clone(), bulletVel, bulletRadius);
+        bullets[bullet.id] = bullet;
+        broadcast('spawnBullet', bullet.serialize());
+      }
     }
   }
 }
@@ -588,7 +615,6 @@ function Player(ws) {
   this.level = 0;
   this.shield = null;
   this.kills = 0;
-  this.hasGun = true;
   this.hasTurret = false;
 
   this.ws = ws;
