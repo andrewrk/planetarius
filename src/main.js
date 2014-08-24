@@ -30,6 +30,7 @@ chem.resources.on('ready', function () {
 
   var me = null;
   var died = false;
+  var respawnTime = null;
   var scroll = v(0, 0);
   var playerLevelAnimations = [ani.world1, ani.world2, ani.world3, ani.world4];
 
@@ -83,8 +84,14 @@ chem.resources.on('ready', function () {
   engine.on('update', function (dt, dx) {
     if (!me) {
       connectingLabel.setVisible(true);
-      connectingLabel.text = died ? "You are fodder. Press R to respawn." : "connecting...";
-      if (died && engine.buttonState(button.KeyR)) {
+      if (died) {
+        connectingLabel.text = "You are fodder. Respawning in " +
+          Math.floor(respawnTime) + " seconds...";
+        respawnTime -= dt;
+      } else {
+        connectingLabel.text = "connecting...";
+      }
+      if (died && respawnTime <= 0) {
         died = false;
         socket.send('spawn');
       }
@@ -341,6 +348,9 @@ chem.resources.on('ready', function () {
     if (player === me) {
       me = null;
       died = !!_died;
+      if (died) {
+        respawnTime = 3;
+      }
     }
   }
 
