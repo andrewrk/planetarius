@@ -21,6 +21,12 @@ exports.spritesheet = {
     volno: {
       anchor: 'topleft',
     },
+    musicyes: {
+      anchor: 'topleft',
+    },
+    musicno: {
+      anchor: 'topleft',
+    },
     dropturret: {
       anchor: {x: 50, y: 50},
     },

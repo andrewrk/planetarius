@@ -40,6 +40,7 @@ chem.resources.on('ready', function () {
   sfxShoot.setVolume(0.50);
 
   var muted = !!localStorage.muted;
+  var musicOff = !!localStorage.musicOff;
 
   var players = {};
   var bullets = {};
@@ -97,6 +98,15 @@ chem.resources.on('ready', function () {
     batch: staticBatch,
   });
 
+  var musicSprite = new chem.Sprite(musicOff ? ani.musicno : ani.musicyes, {
+    pos: volSprite.pos.offset(volSprite.size.x + 4, 0),
+    batch: staticBatch,
+  });
+  var mainMusic = new Audio(chem.resources.url('sfx/music.ogg'));
+  mainMusic.loop = true;
+  setMusicVol();
+  mainMusic.play();
+
   var controlsSprite = new chem.Sprite(ani.controls, {
     pos: v(miniMapPos.x + miniMapSize.x + 4, miniMapPos.y),
     batch: staticBatch,
@@ -116,6 +126,11 @@ chem.resources.on('ready', function () {
         muted = !muted;
         localStorage.muted = muted ? "true" : "";
         volSprite.setAnimation(muted ? ani.volno : ani.volyes);
+      } else if (musicSprite.hitTest(engine.mousePos)) {
+        musicOff = !musicOff;
+        localStorage.musicOff = musicOff ? "true" : "";
+        musicSprite.setAnimation(musicOff ? ani.musicno : ani.musicyes);
+        setMusicVol();
       }
     }
   });
@@ -463,5 +478,9 @@ chem.resources.on('ready', function () {
   function playSfx(sfx) {
     if (muted) return;
     sfx.play();
+  }
+
+  function setMusicVol() {
+    mainMusic.volume = musicOff ? 0 : 0.15;
   }
 });
