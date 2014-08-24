@@ -38,10 +38,14 @@ chem.resources.on('ready', function () {
   var MINI_THEM_COLOR = '#D4313F';
   var SHIELD_DIST = 6;
   var SHIELD_COLOR = '#73AFDA';
+  var NEXT_LEVEL_RADIUS = 80;
+  var MINIMUM_PLAYER_RADIUS = 8;
 
   var mapSize = engine.size.clone();
   var miniMapSize = v(80, 45);
   var miniMapPos = v(0, 0);
+  var progressBarSize = v(230, 24);
+  var progressBarStart = v(220, 10);
 
   var connectingLabel = new chem.Label("connecting...", {
     pos: engine.size.scaled(0.5),
@@ -59,6 +63,14 @@ chem.resources.on('ready', function () {
     textBaseline: "top",
     fillStyle: "#ffffff",
     batch: staticBatch,
+  });
+
+  var progressLabel = new chem.Label("Next Level", {
+    pos: progressBarStart.plus(progressBarSize.scaled(0.5)),
+    font: "18px Arial",
+    textAlign: "center",
+    textBaseline: "middle",
+    fillStyle: "#B7CCFD",
   });
 
   var controlsSprite = new chem.Sprite(ani.controls, {
@@ -101,8 +113,6 @@ chem.resources.on('ready', function () {
 
     if (me) {
       scroll = me.pos.minus(engine.size.scaled(0.5));
-
-      debugLabel.text = String(me.radius);
 
       me.left = engine.buttonState(button.KeyLeft) || engine.buttonState(button.KeyA);
       me.right = engine.buttonState(button.KeyRight) ||
@@ -206,6 +216,15 @@ chem.resources.on('ready', function () {
     staticBatch.draw(context);
     context.strokeStyle = '#BFBFBF';
     context.strokeRect(miniMapPos.x, miniMapPos.y, miniMapSize.x, miniMapSize.y);
+    if (me) {
+      var progress = (me.radius - MINIMUM_PLAYER_RADIUS) / (NEXT_LEVEL_RADIUS - MINIMUM_PLAYER_RADIUS);
+      debugLabel.text = String(progress);
+      context.fillStyle = '#3A3A3A';
+      context.fillRect(progressBarStart.x, progressBarStart.y, progressBarSize.x * progress, progressBarSize.y);
+      context.strokeStyle = '#ffffff';
+      context.strokeRect(progressBarStart.x - 1, progressBarStart.y - 1, progressBarSize.x + 2, progressBarSize.y + 2);
+    }
+    progressLabel.draw(context);
   });
   socket.on('connect', function() {
   });
