@@ -89,6 +89,7 @@ wss.on('connection', function(ws) {
   playerCount += 1;
 
   ws.on('close', function() {
+    players[player.id].deleted = true;
     delete players[player.id];
     playerCount -= 1;
     broadcast('delete', player.id);
@@ -429,7 +430,7 @@ function update(dt, dx) {
   var delTurrets = [];
   for (turretId in turrets) {
     turret = turrets[turretId];
-    if (turret.deleted) {
+    if (turret.deleted || turret.player.deleted) {
       delTurrets.push(turret.id);
       continue;
     }
