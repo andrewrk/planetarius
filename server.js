@@ -20,6 +20,7 @@ server.listen(port, host, function() {
   console.info("Listening at http://" + host + ":" + port + "/");
 });
 
+var cheatsEnabled = process.argv.indexOf('--enable-cheats') > 0;
 var mapSize = v(1, 1);
 var lastUpdate = new Date();
 
@@ -77,7 +78,9 @@ var msgHandlers = {
     send(player.ws, 'you', player.id);
   },
   upgrayde: function(player, args) {
-    playerGainRadius(player, 4);
+    if (cheatsEnabled) { // nice try, crapface
+      playerGainRadius(player, 4);
+    }
   },
 };
 
