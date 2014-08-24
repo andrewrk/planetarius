@@ -77,6 +77,9 @@ chem.resources.on('ready', function () {
     }
   });
 
+
+  setInterval(sendControlUpdate, 32);
+
   engine.on('update', function (dt, dx) {
     if (!me) {
       connectingLabel.setVisible(true);
@@ -103,7 +106,6 @@ chem.resources.on('ready', function () {
         engine.buttonState(button.KeyS) || engine.buttonState(button.KeyO);
       me.fire = engine.buttonState(button.MouseLeft);
       me.aim = engine.mousePos.plus(scroll).minus(me.pos).normalize();
-      sendControlUpdate();
     }
     for (var id in players) {
       var player = players[id];
@@ -355,6 +357,7 @@ chem.resources.on('ready', function () {
   }
 
   function sendControlUpdate() {
+    if (!me) return;
     socket.send('controls', {
       aim: me.aim,
       left: me.left,
