@@ -285,7 +285,7 @@ function update(dt, dx) {
       }
     }
 
-    radiusSum += turret.radius;
+    //radiusSum += turret.radius ;
   }
 
   var delChunks = [];
