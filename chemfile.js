@@ -13,6 +13,10 @@ exports.spritesheet = {
   animations: {
     world1: {},
     world2: {},
+    world3: {},
+    dropturret: {
+      anchor: {x: 50, y: 50},
+    },
     turret: {
       anchor: {x: 20, y: 62},
     },

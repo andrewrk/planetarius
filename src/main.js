@@ -26,10 +26,12 @@ chem.resources.on('ready', function () {
   var players = {};
   var bullets = {};
   var chunks = {};
+  var turrets = {};
+
   var me = null;
   var died = false;
   var scroll = v(0, 0);
-  var playerLevelAnimations = [ani.world1, ani.world2];
+  var playerLevelAnimations = [ani.world1, ani.world2, ani.world3];
 
   var MINI_ME_COLOR = '#536EDB';
   var MINI_THEM_COLOR = '#D4313F';
@@ -134,6 +136,15 @@ chem.resources.on('ready', function () {
       chunk.sprite.pos = chunk.pos;
       chunk.rotation = (chunk.rotation + CHUNK_ROTATION_DELTA * dx) % (2 * Math.PI);
     }
+
+    for (var turretId in turrets) {
+      var turret = turrets[turretId];
+      turret.pos.add(turret.vel.scaled(dx));
+      turret.sprite.pos = turret.pos;
+      turret.sprite.rotation = turret.aim.angle();
+      turret.sprite.scale = v((turret.radius * 2) / turret.sprite.size.y,
+                              (turret.radius * 2) / turret.sprite.size.y);
+    }
   });
   engine.on('draw', function (context) {
     // clear canvas to black
@@ -193,6 +204,7 @@ chem.resources.on('ready', function () {
     Object.keys(players).forEach(deletePlayer);
     Object.keys(chunks).forEach(deleteChunk);
     Object.keys(bullets).forEach(deleteBullet);
+    Object.keys(turrets).forEach(deleteTurret);
     me = null;
   });
   socket.on('delete', function(playerId) {
@@ -279,6 +291,33 @@ chem.resources.on('ready', function () {
   });
   socket.on('deleteBullet', deleteBullet);
   socket.on('deleteChunk', deleteChunk);
+
+  socket.on('spawnTurret', function(turret) {
+    turrets[turret.id] = turret;
+    turret.pos = v(turret.pos);
+    turret.vel = v(turret.vel);
+    turret.aim = v(turret.aim);
+    turret.sprite = new chem.Sprite(ani.dropturret, {
+      batch: batch,
+      pos: turret.pos,
+    });
+    turret.sprite.scale = v((turret.radius * 2) / turret.sprite.size.y,
+                            (turret.radius * 2) / turret.sprite.size.y);
+  });
+  socket.on('turretMove', function(serverTurret) {
+    var turret = turrets[serverTurret.id];
+    turret.pos = v(serverTurret.pos);
+    turret.vel = v(serverTurret.vel);
+    turret.aim = v(serverTurret.aim);
+    turret.radius = serverTurret.radius;
+  });
+  socket.on('deleteTurret', deleteTurret);
+
+  function deleteTurret(turretId) {
+    var turret = turrets[turretId];
+    turret.sprite.delete();
+    delete turrets[turretId];
+  }
   
   function deleteChunk(chunkId) {
     var chunk = chunks[chunkId];

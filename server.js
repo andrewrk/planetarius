@@ -25,22 +25,25 @@ var lastUpdate = new Date();
 
 
 var EPSILON = 0.00000001;
+var fps = 60;
 var maxSpf = 1 / 20;
-var targetSpf = 1 / 60;
+var targetSpf = 1 / fps;
 var DEFAULT_RADIUS = 30;
-var MAX_PLAYER_SPEED = 200 / 60;
-var PLAYER_ACCEL = 5 / 60;
+var MAX_PLAYER_SPEED = 200 / fps;
+var PLAYER_ACCEL = 5 / fps;
 var PLAYER_COOLDOWN = 0.3;
-var BULLET_SPEED = 1100 / 60;
+var BULLET_SPEED = 1100 / fps;
 var DEFAULT_BULLET_RADIUS = 4;
-var CHUNK_SPEED = 100 / 60;
+var CHUNK_SPEED = 100 / fps;
 var CHUNK_COLLECT_TIMEOUT = 10;
 var CHUNK_ATTRACT_DIST = 150;
-var CHUNK_ATTRACT_SPEED = 100 / 60;
+var CHUNK_ATTRACT_SPEED = 100 / fps;
 var MINIMUM_PLAYER_RADIUS = 8;
 var NEXT_LEVEL_RADIUS = 80;
-var MAX_LEVEL = 1;
-var SHIELD_ANGULAR_SPEED = Math.PI * 0.80 / 60;
+var MAX_LEVEL = 2;
+var SHIELD_ANGULAR_SPEED = Math.PI * 0.80 / fps;
+var DEFAULT_TURRET_RADIUS = 8;
+var BULLET_LIFE = 0.5;
 
 var nextId = 0;
 var playerCount = 0;
@@ -48,6 +51,7 @@ var playerCount = 0;
 var players = {};
 var bullets = {};
 var chunks = {};
+var turrets = {};
 
 var msgHandlers = {
   controls: function(player, args) {
@@ -68,6 +72,8 @@ var msgHandlers = {
     player.level = 0;
     player.shield = null;
     player.kills = 0;
+    player.hasGun = true;
+    player.hasTurret = false;
     broadcast('spawn', player.serialize());
     send(player.ws, 'you', player.id);
   },
@@ -133,6 +139,11 @@ wss.on('connection', function(ws) {
     send(ws, 'spawnChunk', chunk.serialize());
   }
 
+  for (var turretId in turrets) {
+    var turret = turrets[turretId];
+    send(ws, 'spawnTurret', turret.serialize());
+  }
+
   updateMapSize();
 });
 
@@ -156,18 +167,25 @@ function sendUpdate() {
     var chunk = chunks[chunkId];
     broadcast('chunkMove', chunk.serialize());
   }
+  for (var turretId in turrets) {
+    var turret = turrets[turretId];
+    broadcast('turretMove', turret.serialize());
+  }
 }
 
 function update(dt, dx) {
   var player, id;
   var playerId;
   var bullet;
+  var turret, turretId;
 
   var radiusSum = 0;
 
   var delBullets = [];
   for (var bulletId in bullets) {
     bullet = bullets[bulletId];
+    if (bullet.deleted) continue;
+
     bullet.pos.add(bullet.vel.scaled(dx));
     bullet.life -= dt;
 
@@ -197,8 +215,24 @@ function update(dt, dx) {
         }
         if (hitPlayer) {
           playerLoseChunk(player, bullet.radius, playerToBullet, bullet.player);
+          bullet.deleted = true;
           delBullets.push(bullet.id);
         }
+      }
+    }
+
+    if (bullet.deleted) continue;
+
+    for (turretId in turrets) {
+      turret = turrets[turretId];
+      if (turret.deleted) continue;
+      if (turret.player === bullet.player) continue;
+      var turretToBullet = bullet.pos.minus(turret.pos);
+      if (turretToBullet.length() < turret.radius + bullet.radius) {
+        turretToBullet.normalize();
+        turretLoseChunk(turret, bullet.radius, turretToBullet, bullet.player);
+        bullet.deleted = true;
+        delBullets.push(bullet.id);
       }
     }
   }
@@ -207,8 +241,56 @@ function update(dt, dx) {
     broadcast('deleteBullet', id);
   });
 
+  var dist;
+  for (turretId in turrets) {
+    turret = turrets[turretId];
+    if (turret.deleted) continue;
+
+    // aim and fire
+    closestPlayer = null;
+    closestDist = Infinity;
+    for (playerId in players) {
+      player = players[playerId];
+      if (player.deleted || player === turret.player) continue;
+      dist = turret.pos.distance(player.pos);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestPlayer = player;
+      }
+    }
+    if (closestPlayer) {
+      /*
+      var timeTillBulletHit = closestDist / BULLET_SPEED;
+      var newPos = player.pos.plus(player.vel.scaled(timeTillBulletHit * fps));
+      */
+      var newPos = closestPlayer.pos;
+      var turretToNewPos = newPos.minus(turret.pos);
+      //console.log("actual:", turretToNewPos.length(), "wanted:", BULLET_LIFE * BULLET_SPEED, "timeTill:", timeTillBulletHit);
+      if (turretToNewPos.length() < BULLET_LIFE * BULLET_SPEED * fps) {
+        turret.aim = turretToNewPos.normalize();
+        if (!turret.cooldown) {
+          turret.cooldown = PLAYER_COOLDOWN;
+          bulletVel = turret.vel.plus(turret.aim.scaled(BULLET_SPEED));
+          bulletRadius = DEFAULT_BULLET_RADIUS * turret.radius / DEFAULT_RADIUS;
+          bullet = new Bullet(turret.player, turret.pos.clone(), bulletVel, bulletRadius);
+          bullets[bullet.id] = bullet;
+          broadcast('spawnBullet', bullet.serialize());
+        }
+      }
+    }
+    if (turret.cooldown) {
+      turret.cooldown -= dt;
+      if (turret.cooldown < 0) {
+        turret.cooldown = 0;
+      }
+    }
+
+    radiusSum += turret.radius;
+  }
+
   var delChunks = [];
   var chunk;
+  var closestDist, closestPlayer;
   for (var chunkId in chunks) {
     chunk = chunks[chunkId];
     chunk.pos.add(chunk.vel.scaled(dx));
@@ -231,15 +313,15 @@ function update(dt, dx) {
       }
     }
 
-    var closestDist = Infinity;
-    var closestPlayer = null;
+    closestDist = Infinity;
+    closestPlayer = null;
     for (playerId in players) {
       player = players[playerId];
       if (player === chunk.player) continue;
       if (player.deleted) continue;
 
       var vecToPlayer = player.pos.minus(chunk.pos);
-      var dist = vecToPlayer.length();
+      dist = vecToPlayer.length();
       if (dist - player.radius - chunk.radius < CHUNK_ATTRACT_DIST && dist < closestDist) {
         vecToPlayer.normalize().scale(CHUNK_ATTRACT_SPEED);
         closestDist = dist;
@@ -260,6 +342,7 @@ function update(dt, dx) {
     broadcast('deleteChunk', chunkId);
   });
 
+  var bulletVel, bulletRadius;
   for (id in players) {
     player = players[id];
     if (player.deleted) continue;
@@ -277,14 +360,26 @@ function update(dt, dx) {
     if (player.up) velDelta.y -= adjustedAccel;
     if (player.down) velDelta.y += adjustedAccel;
 
-    if (player.fire && !player.cooldown) {
+    if (player.hasGun && player.fire && !player.cooldown) {
       player.cooldown = PLAYER_COOLDOWN;
-      var bulletVel = player.vel.plus(player.aim.scaled(BULLET_SPEED));
-      var bulletRadius = DEFAULT_BULLET_RADIUS * player.radius / DEFAULT_RADIUS;
+      bulletVel = player.vel.plus(player.aim.scaled(BULLET_SPEED));
+      bulletRadius = DEFAULT_BULLET_RADIUS * player.radius / DEFAULT_RADIUS;
       bullet = new Bullet(player, player.pos.clone(), bulletVel, bulletRadius);
       bullets[bullet.id] = bullet;
       playerLoseRadius(player, bullet.radius / 5);
       broadcast('spawnBullet', bullet.serialize());
+    } else if (player.hasTurret && player.fire && !player.cooldown) {
+      var turretRadius = DEFAULT_TURRET_RADIUS * player.radius / DEFAULT_RADIUS;
+      if (turretRadius > MINIMUM_PLAYER_RADIUS &&
+          player.radius - turretRadius > MINIMUM_PLAYER_RADIUS)
+      {
+        player.cooldown = PLAYER_COOLDOWN;
+        var turretPos = player.pos.plus(player.aim.scaled(player.radius + 8));
+        turret = new Turret(player, turretPos, turretRadius);
+        turrets[turret.id] = turret;
+        playerLoseRadius(player, turret.radius);
+        broadcast('spawnTurret', turret.serialize());
+      }
     } else if (player.cooldown) {
       player.cooldown -= dt;
       if (player.cooldown < 0) {
@@ -343,6 +438,18 @@ function update(dt, dx) {
   delPlayers.forEach(function(playerId) {
     broadcast('delete', playerId);
   });
+
+  var delTurrets = [];
+  for (turretId in turrets) {
+    turret = turrets[turretId];
+    if (turret.deleted) {
+      delTurrets.push(turret.id);
+      continue;
+    }
+  }
+  delTurrets.forEach(function(turretId) {
+    broadcast('deleteTurret', turretId);
+  });
 }
 
 function playerGainRadius(player, radius) {
@@ -353,7 +460,9 @@ function playerGainRadius(player, radius) {
     player.level += 1;
     player.radius = DEFAULT_RADIUS;
 
+    player.hasGun = (player.level === 0 || player.level === 1);
     player.shield = (player.level === 1) ? 0 : null;
+    player.hasTurret = (player.level === 2);
 
     var chunkCount = 12;
     var chunkRadius= lostRadius / chunkCount;
@@ -409,6 +518,27 @@ function makeId() {
   return nextId++;
 }
 
+function turretLoseChunk(turret, radius, chunkVelDir, bulletPlayer) {
+  var chunkVel = chunkVelDir.scaled(CHUNK_SPEED);
+  var chunkPos = turret.pos.plus(chunkVelDir.scaled(turret.radius));
+  var chunk = new Chunk(turret.player, chunkPos, chunkVel, radius);
+  chunks[chunk.id] = chunk;
+  broadcast('spawnChunk', chunk.serialize());
+
+  turret.radius -= radius;
+  if (turret.radius < MINIMUM_PLAYER_RADIUS) {
+    turret.deleted = true;
+    if (bulletPlayer) {
+      bulletPlayer.kills += 1;
+    }
+    if (turret.radius > 0) {
+      var extraChunk = new Chunk(turret.player, turret.pos.clone(), turret.vel.clone(), turret.radius);
+      chunks[extraChunk.id] = extraChunk;
+      broadcast('spawnChunk', extraChunk.serialize());
+    }
+  }
+}
+
 function playerLoseChunk(player, radius, chunkVelDir, bulletPlayer) {
   var chunkVel = chunkVelDir.scaled(CHUNK_SPEED);
   var chunkPos = player.pos.plus(chunkVelDir.scaled(player.radius));
@@ -423,7 +553,9 @@ function playerLoseRadius(player, radius, bulletPlayer) {
   player.radius -= radius;
   if (player.radius < MINIMUM_PLAYER_RADIUS) {
     player.deleted = true;
-    bulletPlayer.kills += 1;
+    if (bulletPlayer) {
+      bulletPlayer.kills += 1;
+    }
     if (player.radius > 0) {
       var extraChunk = new Chunk(null, player.pos.clone(), player.vel.clone(), player.radius);
       chunks[extraChunk.id] = extraChunk;
@@ -456,6 +588,8 @@ function Player(ws) {
   this.level = 0;
   this.shield = null;
   this.kills = 0;
+  this.hasGun = true;
+  this.hasTurret = false;
 
   this.ws = ws;
 }
@@ -484,7 +618,7 @@ function Bullet(player, pos, vel, radius) {
   this.pos = pos;
   this.vel = vel;
   this.radius = radius;
-  this.life = 0.5;
+  this.life = BULLET_LIFE;
   this.collisionDamping = 0.95;
   this.density = 0.04;
 }
@@ -518,5 +652,25 @@ Chunk.prototype.serialize = function() {
     pos: this.pos,
     vel: this.vel,
     radius: this.radius,
+  };
+};
+
+function Turret(player, pos, radius) {
+  this.id = makeId();
+  this.radius = radius;
+  this.pos = pos;
+  this.vel = v(0, 0);
+  this.player = player;
+  this.aim = v(1, 0);
+  this.cooldown = 0;
+}
+
+Turret.prototype.serialize = function() {
+  return {
+    id: this.id,
+    pos: this.pos,
+    vel: this.vel,
+    radius: this.radius,
+    aim: this.aim,
   };
 };
