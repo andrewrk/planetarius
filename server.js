@@ -84,11 +84,9 @@ var msgHandlers = {
 setInterval(callUpdate, 16);
 setInterval(sendUpdate, 32);
 wss.on('connection', function(ws) {
-  playerCount += 1;
-  updateMapSize();
-
   var player = new Player(ws);
   players[player.id] = player;
+  playerCount += 1;
 
   ws.on('close', function() {
     players[player.id].deleted = true;
@@ -145,6 +143,8 @@ wss.on('connection', function(ws) {
     var turret = turrets[turretId];
     send(ws, 'spawnTurret', turret.serialize());
   }
+
+  updateMapSize();
 });
 
 function updateMapSize() {
