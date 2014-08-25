@@ -212,6 +212,7 @@ chem.resources.on('ready', function () {
     }
   });
   engine.on('draw', function (context) {
+    context.imageSmoothingEnabled = false;
     // clear canvas to black
     context.fillStyle = '#000000'
     context.fillRect(0, 0, engine.size.x, engine.size.y);
