@@ -409,7 +409,7 @@ function update(dt, dx) {
     }
   }
 
-  if (radiusSum * radiusSum * Math.PI < mapSize.x * mapSize.y * 0.02) {
+  if (radiusSum * radiusSum * Math.PI < mapSize.x * mapSize.y * 0.03) {
     var chunkVelDir = v.unit(Math.random() * Math.PI * 2);
     var chunkVel = chunkVelDir.scaled(CHUNK_SPEED);
     var chunkPos = v(Math.random() * mapSize.x, Math.random() * mapSize.y);
