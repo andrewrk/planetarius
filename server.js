@@ -21,7 +21,7 @@ server.listen(port, host, function() {
 });
 
 var cheatsEnabled = process.argv.indexOf('--enable-cheats') > 0;
-var mapSize = v(1, 1);
+var mapSize = v(960, 540);
 var lastUpdate = new Date();
 
 
